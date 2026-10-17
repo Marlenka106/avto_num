@@ -1,0 +1,35 @@
+# Виртуальное окружение
+.venv/
+venv/
+
+# Данные и архивы (никогда не коммитим в Git!)
+number_plates.zip
+number_plates/
+data/raw/
+data/processed/
+
+# Веса моделей и логи обучения
+weights/
+runs/
+*.pt
+*.pth
+*.onnx
+*.best
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# IDE и OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Отчёты (тяжёлые картинки можно игнорировать или хранить через Git LFS)
+reports/figures/*.png
+reports/figures/*.pdf
