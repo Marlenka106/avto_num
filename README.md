@@ -98,3 +98,16 @@ python evaluate_yolo.py
 Статус: ✅ Рабочий прототип с точностью 75% (Exact Match)  
 
 Цель: 🎯 Довести до 80%+ через аугментацию и более мощные модели
+
+## 🏆 Финальные результаты (После аугментации и YOLOv8m)
+
+- **mAP50:** 98.2%
+- **Exact Match Accuracy:** 85.0% (17/20 на изолированном тесте)
+- **Размер обучающей выборки:** 1381 изображение (аугментировано из 349)
+- **Модель:** YOLOv8m (25.8M параметров)
+
+### Как повторить результат:
+1. Сгенерировать аугментированный датасет: `python augment_data.py`
+2. Обучить модель: `yolo detect train data=data.yaml model=yolov8m.pt epochs=100 imgsz=640 batch=8 patience=25 project=runs/yolo_aug name=plates_detector_m`
+3. Оценить точность: `python evaluate_yolo_m.py`
+
