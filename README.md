@@ -14,3 +14,73 @@
 - Full pipeline: backbone → FPN → FCOS head → NMS
 
 ## 🏗️ Архитектура проекта
+avto_num/
+├── src/
+│ ├── data/ # Загрузка данных, аугментации
+│ │ ├── dataset.py # PyTorch Dataset
+│ │ ├── loader.py # Парсинг XML/TXT аннотаций
+│ │ └── eda.py # Разведочный анализ
+│ ├── models/ # Архитектуры моделей
+│ │ ├── fcos.py # FCOS detector
+│ │ └── loss.py # Focal + GIoU loss
+│ ├── training/ # Циклы обучения
+│ │ └── train.py # Training loop
+│ ├── evaluation/ # Инференс и метрики
+│ │ ├── inference.py # FCOS inference
+│ │ └── metrics.py # mAP, IoU
+│ └── utils/ # Утилиты
+│ ├── seed.py # Reproducibility
+│ └── paths.py # Paths management
+├── number_plates/ # Исходные данные (train/val/test)
+├── yolo_dataset/ # Данные в формате YOLO
+├── runs/ # Логи и веса YOLO
+├── weights/ # Веса FCOS
+├── reports/ # Графики и визуализации
+├── evaluate_yolo.py # Финальная оценка YOLO
+├── prepare_yolo_data.py # Конвертация в YOLO формат
+├── data.yaml # Конфиг YOLO
+└── README.md
+
+
+## 🚀 Быстрый старт
+
+### Установка зависимостей
+```bash
+python3.10 -m venv .venv
+source .venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+pip install ultralytics opencv-python-headless pandas matplotlib seaborn scikit-learn tqdm Pillow pyyaml loguru albumentations
+
+## Обучение YOLOv8 
+
+```bash
+yolo detect train data=data.yaml model=yolov8s.pt epochs=100 imgsz=640 batch=8 patience=20
+
+Оценка точности
+
+python evaluate_yolo.py
+
+📈 Методология
+Разделение данных: 80% train, 20% val (из исходного train), 20 test (изолированная выборка)
+Аугментации: Mosaic, MixUp, ColorJitter, RandomAffine
+Early Stopping: patience=20 эпох
+Постобработка: геометрическая фильтрация + ограничение длины номера (≤7 символов)
+🎯 Классы (27 символов)
+Цифры: 0-9
+Буквы: A, B, D, E, G, H, J, K, L, N, R, S, T, U, V, X, Z
+📝 TODO
+Увеличить датасет (аугментация существующих данных)
+Попробовать YOLOv8m/l для лучшей точности
+Добавить OCR-постобработку (CRNN/SVTR)
+Ensemble из нескольких моделей
+Оптимизация для edge-устройств (TensorRT, ONNX)
+🛠️ Технологии
+PyTorch 2.5+ с CUDA 12.4
+Ultralytics YOLOv8 для production-детекции
+Кастомная FCOS для исследовательских целей
+Python 3.10
+Ubuntu 24.04 + RTX 4060
+📄 Лицензия
+Учебный проект.
+Статус: ✅ Рабочий прототип с точностью 75% (Exact Match)
+Цель: 🎯 Довести до 80%+ через аугментацию и более мощные модели
