@@ -2,11 +2,12 @@
 .venv/
 venv/
 
-# Данные и архивы (никогда не коммитим в Git!)
-number_plates.zip
+# Данные (НЕ коммитим гигабайты картинок!)
 number_plates/
-data/raw/
-data/processed/
+number_plates.zip
+yolo_dataset/
+data/
+*.zip
 
 # Веса моделей и логи обучения
 weights/
@@ -29,7 +30,16 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
 
-# Отчёты (тяжёлые картинки можно игнорировать или хранить через Git LFS)
+# Jupyter
+.ipynb_checkpoints/
+
+# Отчеты с картинками (слишком большие для GitHub)
 reports/figures/*.png
 reports/figures/*.pdf
+
+# Временные файлы
+*.log
+*.tmp

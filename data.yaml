@@ -1,0 +1,7 @@
+path: .
+train: number_plates/train
+val: number_plates/val
+test: number_plates/test
+
+# Классы должны точно совпадать с вашим списком!
+names: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'D', 'E', 'G', 'H', 'J', 'K', 'L', 'N', 'R', 'S', 'T', 'U', 'V', 'X', 'Z']
