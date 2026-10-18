@@ -50,37 +50,51 @@ python3.10 -m venv .venv
 source .venv/bin/activate
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 pip install ultralytics opencv-python-headless pandas matplotlib seaborn scikit-learn tqdm Pillow pyyaml loguru albumentations
+```
 
 ## Обучение YOLOv8 
 
 ```bash
 yolo detect train data=data.yaml model=yolov8s.pt epochs=100 imgsz=640 batch=8 patience=20
+```
 
-Оценка точности
+## Оценка точности
 
+```bash
 python evaluate_yolo.py
+```
+## 📈 Методология 
 
-📈 Методология
-Разделение данных: 80% train, 20% val (из исходного train), 20 test (изолированная выборка)
-Аугментации: Mosaic, MixUp, ColorJitter, RandomAffine
-Early Stopping: patience=20 эпох
-Постобработка: геометрическая фильтрация + ограничение длины номера (≤7 символов)
-🎯 Классы (27 символов)
-Цифры: 0-9
-Буквы: A, B, D, E, G, H, J, K, L, N, R, S, T, U, V, X, Z
-📝 TODO
-Увеличить датасет (аугментация существующих данных)
-Попробовать YOLOv8m/l для лучшей точности
-Добавить OCR-постобработку (CRNN/SVTR)
-Ensemble из нескольких моделей
-Оптимизация для edge-устройств (TensorRT, ONNX)
-🛠️ Технологии
-PyTorch 2.5+ с CUDA 12.4
-Ultralytics YOLOv8 для production-детекции
-Кастомная FCOS для исследовательских целей
-Python 3.10
-Ubuntu 24.04 + RTX 4060
-📄 Лицензия
-Учебный проект.
-Статус: ✅ Рабочий прототип с точностью 75% (Exact Match)
+1. Разделение данных: 80% train, 20% val (из исходного train), 20 test (изолированная выборка)
+2. Аугментации: Mosaic, MixUp, ColorJitter, RandomAffine
+3. Early Stopping: patience=20 эпох
+4. Постобработка: геометрическая фильтрация + ограничение длины номера (≤7 символов)  
+
+## 🎯 Классы (27 символов)  
+
+Цифры: 0-9  
+
+Буквы: A, B, D, E, G, H, J, K, L, N, R, S, T, U, V, X, Z  
+
+## 📝 TODO  
+
+- Увеличить датасет (аугментация существующих данных)
+- Попробовать YOLOv8m/l для лучшей точности
+- Добавить OCR-постобработку (CRNN/SVTR)
+- Ensemble из нескольких моделей
+- Оптимизация для edge-устройств (TensorRT, ONNX)  
+
+## 🛠️ Технологии 
+
+- PyTorch 2.5+ с CUDA 12.4
+- Ultralytics YOLOv8 для production-детекции
+- Кастомная FCOS для исследовательских целей
+- Python 3.10
+- Ubuntu 24.04 + RTX 4060  
+
+## 📄 Лицензия
+Учебный проект.  
+
+Статус: ✅ Рабочий прототип с точностью 75% (Exact Match)  
+
 Цель: 🎯 Довести до 80%+ через аугментацию и более мощные модели
