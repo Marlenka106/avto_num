@@ -9,6 +9,8 @@ from albumentations.pytorch import ToTensorV2
 from PIL import Image
 from torch.utils.data import Dataset
 
+from src.data.images import list_images
+
 # Порядок совпадает с class_id в .txt аннотациях
 # fmt: off
 CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -16,7 +18,6 @@ CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
            'R', 'S', 'T', 'U', 'V', 'X', 'Z']
 # fmt: on
 
-IMAGE_EXTENSIONS = {'.jpeg', '.jpg', '.png'}
 INPUT_HEIGHT = 256
 INPUT_WIDTH = 512
 
@@ -45,7 +46,7 @@ class PlateCharDataset(Dataset):
         self.img_dir = Path(img_dir)
         self.txt_dir = Path(txt_dir)
         self.transforms = transforms
-        self.img_paths = sorted(p for p in self.img_dir.iterdir() if p.suffix.lower() in IMAGE_EXTENSIONS)
+        self.img_paths = list_images(self.img_dir)
 
     def __len__(self):
         return len(self.img_paths)

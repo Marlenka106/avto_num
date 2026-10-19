@@ -3,6 +3,8 @@
 import shutil
 from pathlib import Path
 
+from src.data.images import list_images
+
 
 def prepare_yolo_dataset():
     # Исходные папки
@@ -21,8 +23,8 @@ def prepare_yolo_dataset():
     # Функция копирования файлов
     def copy_split(src_dir, split_name):
         count = 0
-        for jpeg in src_dir.glob("*.jpeg"):
-            stem = jpeg.stem
+        for img_path in list_images(src_dir):
+            stem = img_path.stem
             txt = src_dir / f"{stem}.txt"
 
             if not txt.exists():
@@ -30,7 +32,7 @@ def prepare_yolo_dataset():
                 continue
 
             # Копируем изображение
-            shutil.copy(jpeg, dst_root / "images" / split_name / jpeg.name)
+            shutil.copy(img_path, dst_root / "images" / split_name / img_path.name)
             # Копируем аннотацию
             shutil.copy(txt, dst_root / "labels" / split_name / txt.name)
             count += 1

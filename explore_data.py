@@ -9,6 +9,8 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from PIL import Image
 
+from src.data.images import list_images
+
 # Пути к данным
 train_dir = Path("number_plates/train")
 test_dir = Path("number_plates/test")
@@ -23,13 +25,13 @@ for xml_path in xml_files:
         all_chars.append(obj.find("name").text)
 
 char_counts = Counter(all_chars)
-print(f"Всего изображений в train: {len(list(train_dir.glob('*.jpeg')))}")
-print(f"Всего изображений в test:  {len(list(test_dir.glob('*.jpeg')))}")
+print(f"Всего изображений в train: {len(list_images(train_dir))}")
+print(f"Всего изображений в test:  {len(list_images(test_dir))}")
 print(f"Уникальные символы ({len(char_counts)}): {sorted(char_counts.keys())}")
 print(f"Топ-5 частых символов: {char_counts.most_common(5)}\n")
 
 # 2. Визуализация 6 случайных примеров
-sample_images = random.sample(list(train_dir.glob("*.jpeg")), 6)
+sample_images = random.sample(list_images(train_dir), 6)
 
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 axes = axes.flatten()
