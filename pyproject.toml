@@ -2,22 +2,50 @@
 name = "avto_num"
 version = "1.0.0"
 description = "License Plate Character Detection and OCR Pipeline"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 authors = [
     {name = "Elena", email = "elena@example.com"}
-]
-dependencies = [
-    "torch>=2.1.0",
-    "torchvision>=0.16.0",
-    "ultralytics>=8.1.0",
-    "albumentations>=1.3.0",
-    "opencv-python-headless>=4.8.0",
-    "pandas>=2.0.0",
-    "matplotlib>=3.7.0",
-    "seaborn>=0.13.0",
-    "loguru>=0.7.0",
 ]
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["number_plates", "yolo_dataset", "yolo_dataset_augmented", "runs", "weights"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle: ошибки стиля
+    "W",    # pycodestyle: предупреждения
+    "F",    # pyflakes: неиспользуемые импорты и переменные
+    "I",    # сортировка импортов
+    "B",    # bugbear: типичные ошибки
+    "UP",   # современный синтаксис Python
+    "SIM",  # упрощение конструкций
+    "C4",   # comprehensions
+    "BLE",  # запрет `except Exception`
+    "RUF",  # правила самого ruff
+]
+ignore = [
+    "RUF001",  # кириллица в строках — проект на русском
+    "RUF002",  # кириллица в докстрингах
+    "RUF003",  # кириллица в комментариях
+    "E741",    # l, t, r, b — стандартная нотация расстояний в FCOS
+]
+
+[tool.ruff.lint.per-file-ignores]
+"augment_data.py" = ["BLE001"]  # обработка ошибок аугментации будет переписана отдельным PR
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --cov=src --cov-report=term-missing"

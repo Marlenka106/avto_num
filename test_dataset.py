@@ -1,10 +1,13 @@
 """Тестирование кастомного Dataset и DataLoader (исправленная визуализация)."""
+
+from pathlib import Path
+
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
-from src.data.dataset import PlateCharDataset, get_transform, CLASSES
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from pathlib import Path
+
+from src.data.dataset import CLASSES, PlateCharDataset, get_transform
 
 # Пути к данным
 train_img_dir = "number_plates/train"
@@ -15,12 +18,12 @@ print("Создание датасета (без аугментаций)...")
 dataset = PlateCharDataset(
     img_dir=train_img_dir,
     txt_dir=train_txt_dir,
-    transforms=get_transform(train=False) # <-- ВАЖНО: train=False
+    transforms=get_transform(train=False),  # <-- ВАЖНО: train=False
 )
 print(f"✅ Датасет создан. Всего изображений: {len(dataset)}")
 
 # 2. Создаем DataLoader
-dataloader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
+dataloader = DataLoader(dataset, batch_size=4, shuffle=True, collate_fn=lambda x: tuple(zip(*x, strict=False)))
 
 # 3. Берем один батч
 images, targets = next(iter(dataloader))
@@ -52,17 +55,21 @@ for i, box in enumerate(target["boxes"]):
     xmin, ymin, xmax, ymax = box.tolist()
     label_id = target["labels"][i].item()
     char = CLASSES[label_id]
-    
+
     # Рисуем прямоугольник
-    rect = patches.Rectangle(
-        (xmin, ymin), xmax - xmin, ymax - ymin,
-        linewidth=2, edgecolor='cyan', facecolor='none'
-    )
+    rect = patches.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, linewidth=2, edgecolor='cyan', facecolor='none')
     ax.add_patch(rect)
-    
+
     # Подпись
-    ax.text(xmin, ymin - 5, char, color='white', fontsize=12, fontweight='bold',
-            bbox=dict(facecolor='magenta', alpha=0.7, edgecolor='none', pad=2))
+    ax.text(
+        xmin,
+        ymin - 5,
+        char,
+        color='white',
+        fontsize=12,
+        fontweight='bold',
+        bbox={"facecolor": 'magenta', "alpha": 0.7, "edgecolor": 'none', "pad": 2},
+    )
 
 ax.set_title("Проверка Dataset: координаты из .txt на исходном изображении")
 ax.axis('off')

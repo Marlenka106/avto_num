@@ -1,11 +1,13 @@
 """Первый взгляд на данные: визуализация изображений и bounding box."""
-from pathlib import Path
-import xml.etree.ElementTree as ET
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from PIL import Image
+
 import random
+import xml.etree.ElementTree as ET
 from collections import Counter
+from pathlib import Path
+
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+from PIL import Image
 
 # Пути к данным
 train_dir = Path("number_plates/train")
@@ -35,16 +37,16 @@ axes = axes.flatten()
 for idx, img_path in enumerate(sample_images):
     # Загружаем изображение
     img = Image.open(img_path)
-    
+
     # Загружаем аннотации из XML
     xml_path = img_path.with_suffix(".xml")
     tree = ET.parse(xml_path)
     root = tree.getroot()
-    
+
     # Рисуем
     ax = axes[idx]
     ax.imshow(img)
-    
+
     # Рисуем bounding box для каждого символа
     for obj in root.findall("object"):
         bbox = obj.find("bndbox")
@@ -53,18 +55,22 @@ for idx, img_path in enumerate(sample_images):
         x2 = float(bbox.find("xmax").text)
         y2 = float(bbox.find("ymax").text)
         char = obj.find("name").text
-        
+
         # Рисуем прямоугольник
-        rect = patches.Rectangle(
-            (x1, y1), x2 - x1, y2 - y1,
-            linewidth=2, edgecolor='lime', facecolor='none'
-        )
+        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor='lime', facecolor='none')
         ax.add_patch(rect)
-        
+
         # Подписываем символ
-        ax.text(x1, y1 - 5, char, color='white', fontsize=10, fontweight='bold',
-                bbox=dict(facecolor='red', alpha=0.7, edgecolor='none', pad=1))
-    
+        ax.text(
+            x1,
+            y1 - 5,
+            char,
+            color='white',
+            fontsize=10,
+            fontweight='bold',
+            bbox={"facecolor": 'red', "alpha": 0.7, "edgecolor": 'none', "pad": 1},
+        )
+
     ax.set_title(img_path.stem[:15] + "...")
     ax.axis('off')
 

@@ -23,6 +23,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
+.coverage
+.pytest_cache/
+.ruff_cache/
 dist/
 build/
 

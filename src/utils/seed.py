@@ -1,8 +1,11 @@
 """Утилиты для воспроизводимости результатов."""
+
 import os
 import random
+
 import numpy as np
 import torch
+
 
 def set_seed(seed: int = 42) -> None:
     """Фиксирует random seed для Python, NumPy и PyTorch."""
@@ -13,4 +16,3 @@ def set_seed(seed: int = 42) -> None:
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-

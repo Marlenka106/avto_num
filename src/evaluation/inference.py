@@ -1,24 +1,28 @@
 """Инференс и оценка точности распознавания номеров (Exact Match Accuracy)."""
+
+from pathlib import Path
+
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import torch
 import torchvision.ops as ops
-from torch.utils.data import DataLoader
-from pathlib import Path
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from loguru import logger
+from torch.utils.data import DataLoader
 
-from src.data.dataset import PlateCharDataset, get_transform, CLASSES
+from src.data.dataset import CLASSES, PlateCharDataset, get_transform
 from src.models.fcos import FCOSDetector
 from src.utils.seed import set_seed
 
 # Обратный маппинг: индекс класса -> символ
-INV_CLASSES = {i: char for i, char in enumerate(CLASSES)}
+INV_CLASSES = dict(enumerate(CLASSES))
+
 
 def collate_fn(batch):
     """Возвращает тензор изображений и список словарей-таргетов."""
     images = torch.stack([item[0] for item in batch], dim=0)
     targets = [item[1] for item in batch]
     return images, targets
+
 
 def generate_locations(h, w, device):
     """Генерирует координаты центров для каждого уровня пирамиды при размере 256x512."""
@@ -33,12 +37,12 @@ def generate_locations(h, w, device):
         locations.append(loc)
     return locations
 
+
 def filter_plate_chars(boxes, scores, labels):
     """Геометрическая фильтрация: символы номера равной высоты, на одной строке, без перекрытий."""
     if len(boxes) == 0:
         return boxes, scores, labels
 
-    w = boxes[:, 2] - boxes[:, 0]
     h = boxes[:, 3] - boxes[:, 1]
     cy = (boxes[:, 1] + boxes[:, 3]) / 2
 
@@ -48,7 +52,7 @@ def filter_plate_chars(boxes, scores, labels):
     # 1) Размер: выбрасываем аномально мелкие/крупные
     m = (h > 0.5 * med_h) & (h < 2.0 * med_h)
     # 2) Одна строка: все символы на одном уровне
-    m &= (torch.abs(cy - med_cy) < 0.7 * med_h)
+    m &= torch.abs(cy - med_cy) < 0.7 * med_h
 
     boxes, scores, labels = boxes[m], scores[m], labels[m]
     if len(boxes) < 2:
@@ -64,9 +68,9 @@ def filter_plate_chars(boxes, scores, labels):
         inter = min(boxes[i, 2].item(), boxes[j, 2].item()) - max(boxes[i, 0].item(), boxes[j, 0].item())
         wi = (boxes[i, 2] - boxes[i, 0]).item()
         wj = (boxes[j, 2] - boxes[j, 0]).item()
-        if inter > 0.35 * min(wi, wj):      # сильное перекрытие => это один и тот же символ
+        if inter > 0.35 * min(wi, wj):  # сильное перекрытие => это один и тот же символ
             if scores[i].item() > scores[j].item():
-                keep[-1] = i                 # оставляем более уверенный
+                keep[-1] = i  # оставляем более уверенный
             continue
         keep.append(i)
 
@@ -97,16 +101,20 @@ def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35
             idx_pos, idx_cls = pos[0], pos[1]
             r = reg[idx_pos]
             l = loc[idx_pos]
-            bx = torch.stack([l[:, 0] - r[:, 0], l[:, 1] - r[:, 1],
-                              l[:, 0] + r[:, 2], l[:, 1] + r[:, 3]], dim=1)
+            bx = torch.stack([l[:, 0] - r[:, 0], l[:, 1] - r[:, 1], l[:, 0] + r[:, 2], l[:, 1] + r[:, 3]], dim=1)
 
             all_boxes.append(bx)
             all_scores.append(scores_lvl[idx_pos, idx_cls])
             all_labels.append(idx_cls)
 
         if len(all_boxes) == 0:
-            all_predictions.append({'boxes': torch.zeros((0, 4)), 'scores': torch.zeros((0,)),
-                                    'labels': torch.zeros((0,), dtype=torch.long)})
+            all_predictions.append(
+                {
+                    'boxes': torch.zeros((0, 4)),
+                    'scores': torch.zeros((0,)),
+                    'labels': torch.zeros((0,), dtype=torch.long),
+                }
+            )
             continue
 
         boxes = torch.cat(all_boxes)
@@ -121,20 +129,23 @@ def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35
         boxes, scores, labels = filter_plate_chars(boxes, scores, labels)
 
         order = boxes[:, 0].argsort()
-        all_predictions.append({
-            'boxes': boxes[order],
-            'scores': scores[order],
-            'labels': labels[order],
-        })
+        all_predictions.append(
+            {
+                'boxes': boxes[order],
+                'scores': scores[order],
+                'labels': labels[order],
+            }
+        )
 
     return all_predictions
+
 
 def get_gt_string_from_txt(txt_path):
     """Читает .txt и возвращает строку номера, отсортированную слева направо."""
     if not txt_path.exists():
         return ""
     boxes_chars = []
-    with open(txt_path, 'r') as f:
+    with open(txt_path) as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) == 5:
@@ -144,69 +155,67 @@ def get_gt_string_from_txt(txt_path):
     boxes_chars.sort(key=lambda x: x[0])
     return "".join([c for _, c in boxes_chars])
 
+
 def evaluate():
     set_seed(42)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Using device: {device}")
-    
+
     # 1. Загружаем тестовый датасет
     test_dataset = PlateCharDataset(
-        img_dir="number_plates/test",
-        txt_dir="number_plates/test",
-        transforms=get_transform(train=False)
+        img_dir="number_plates/test", txt_dir="number_plates/test", transforms=get_transform(train=False)
     )
     # ДОБАВЛЕНО: collate_fn=collate_fn
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn, num_workers=2)
-    
+
     # 2. Загружаем модель и веса
     model = FCOSDetector(num_classes=27, backbone_pretrained=False).to(device)
     weights_path = Path("weights/best.pt")
     if not weights_path.exists():
         logger.error(f"Weights not found at {weights_path}. Train the model first!")
         return
-    
+
     # ДОБАВЛЕНО: weights_only=True для устранения FutureWarning
     model.load_state_dict(torch.load(weights_path, map_location=device, weights_only=True))
     model.eval()
     logger.info(f"Loaded weights from {weights_path}")
-    
+
     # 3. Инференс
     locations = generate_locations(256, 512, device)
     correct_plates = 0
     total_plates = len(test_dataset)
-    
+
     Path("reports/figures").mkdir(parents=True, exist_ok=True)
-    
+
     logger.info("Running inference on test set...")
-    for idx, (images, targets) in enumerate(test_loader):
+    for idx, (images, _) in enumerate(test_loader):
         img_tensor = images.to(device)
-        target = targets[0]  # Теперь это работает, так как targets - это список словарей
         img_path = test_dataset.img_paths[idx]
         txt_path = test_dataset.txt_dir / f"{img_path.stem}.txt"
-        
+
         with torch.no_grad():
             logits, bbox_reg, centerness = model(img_tensor)
-            
+
         preds = decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.15, nms_thresh=0.4)[0]
-        
+
         # Собираем предсказанную строку (сортируем по x1)
         pred_str = ""
         if len(preds['boxes']) > 0:
             order = preds['boxes'][:, 0].argsort()
             pred_labels = preds['labels'][order].cpu().numpy()
             pred_str = "".join([INV_CLASSES[int(lbl)] for lbl in pred_labels])
-            
+
         # Ground Truth строка
         gt_str = get_gt_string_from_txt(txt_path)
-        
+
         if pred_str == gt_str and len(gt_str) > 0:
             correct_plates += 1
             status = "✅"
         else:
             status = "❌"
-            
+
         logger.info(f"[{idx+1}/{total_plates}] {status} GT: {gt_str: <10} | Pred: {pred_str: <10}")
-        
+
         # Визуализация первых 5 примеров
         if idx < 5:
             fig, ax = plt.subplots(1, figsize=(8, 4))
@@ -215,27 +224,35 @@ def evaluate():
             std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
             img_display = (img_display * std + mean).permute(1, 2, 0).clamp(0, 1).numpy()
             ax.imshow(img_display)
-            
+
             for i, box in enumerate(preds['boxes']):
                 x1, y1, x2, y2 = box.cpu().numpy()
                 lbl = INV_CLASSES[int(preds['labels'][i].cpu().item())]
                 score = preds['scores'][i].cpu().item()
-                rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='lime', facecolor='none')
+                rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=1, edgecolor='lime', facecolor='none')
                 ax.add_patch(rect)
-                ax.text(x1, y1-2, f"{lbl} {score:.2f}", color='white', fontsize=8, bbox=dict(facecolor='red', alpha=0.7, pad=1))
-                
+                ax.text(
+                    x1,
+                    y1 - 2,
+                    f"{lbl} {score:.2f}",
+                    color='white',
+                    fontsize=8,
+                    bbox={'facecolor': 'red', 'alpha': 0.7, 'pad': 1},
+                )
+
             ax.set_title(f"GT: {gt_str} | Pred: {pred_str}")
             ax.axis('off')
             plt.savefig(f"reports/figures/test_pred_{idx}.png", dpi=150, bbox_inches='tight')
             plt.close()
-            
+
     accuracy = correct_plates / total_plates
     logger.success(f"🎯 EXACT MATCH ACCURACY: {accuracy:.2%} ({correct_plates}/{total_plates})")
-    
+
     if accuracy >= 0.80:
         logger.success("🏆 ЦЕЛЬ ДОСТИГНУТА: Точность >= 80%!")
     else:
         logger.warning("⚠️ Точность < 80%. Рекомендуется дообучить модель (увеличить epochs до 50-100).")
+
 
 if __name__ == "__main__":
     evaluate()
