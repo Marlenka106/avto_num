@@ -13,6 +13,7 @@ from ultralytics import YOLO
 
 from evaluate_yolo_m import filter_plate_predictions, get_gt_from_txt
 from src.data.dataset import CLASSES
+from src.data.images import list_images
 
 # Настройки графиков
 plt.rcParams['figure.dpi'] = 150
@@ -243,7 +244,7 @@ labels_dir = Path("yolo_dataset_augmented/labels/test")
 success_examples = []
 fail_examples = []
 
-for img_path in sorted(test_dir.glob("*.jpeg")):
+for img_path in list_images(test_dir):
     stem = img_path.stem
     txt_path = labels_dir / f"{stem}.txt"
     gt_str = get_gt_from_txt(txt_path)
@@ -324,7 +325,7 @@ for autotext in autotexts:
     autotext.set_color('white')
 
 plt.title(
-    f'Распределение результатов на тестовой выборке (20 изображений)\n'
+    f'Распределение результатов на тестовой выборке ({len(success_examples) + len(fail_examples)} изображений)\n'
     f'Всего: {len(success_examples)} правильно, {len(fail_examples)} ошибок',
     fontsize=14,
     fontweight='bold',

@@ -4,33 +4,30 @@ import random
 import shutil
 from pathlib import Path
 
+from src.data.images import list_images
+
 random.seed(42)
 
 train_dir = Path("number_plates/train")
 val_dir = Path("number_plates/val")
 val_dir.mkdir(exist_ok=True)
 
-# Находим все уникальные имена файлов (без расширения)
-stems = list({p.stem for p in train_dir.glob("*.jpeg")})
-random.shuffle(stems)
+# Находим все изображения
+images = list_images(train_dir)
+random.shuffle(images)
 
 # Делим 80/20
-val_size = int(0.2 * len(stems))
-val_stems = stems[:val_size]
-train_stems = stems[val_size:]
+val_size = int(0.2 * len(images))
+val_images = images[:val_size]
+train_images = images[val_size:]
 
-print(f"Всего изображений: {len(stems)}")
-print(f"Перемещаем в val: {len(val_stems)}")
-print(f"Оставляем в train: {len(train_stems)}")
+print(f"Всего изображений: {len(images)}")
+print(f"Перемещаем в val: {len(val_images)}")
+print(f"Оставляем в train: {len(train_images)}")
 
-# Перемещаем файлы
-moved_count = 0
-for stem in val_stems:
-    for ext in [".jpeg", ".txt", ".xml"]:
-        src = train_dir / f"{stem}{ext}"
-        dst = val_dir / f"{stem}{ext}"
-        if src.exists():
-            shutil.move(str(src), str(dst))
-            moved_count += 1
+# Перемещаем изображения вместе с аннотациями
+for img_path in val_images:
+    for src in [img_path, img_path.with_suffix(".txt"), img_path.with_suffix(".xml")]:
+        shutil.move(str(src), str(val_dir / src.name))
 
-print(f"✅ Разделение завершено! Перемещено файлов: {moved_count // 3}")
+print(f"✅ Разделение завершено! Перемещено изображений: {len(val_images)}")

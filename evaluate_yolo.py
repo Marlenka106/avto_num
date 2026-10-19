@@ -4,6 +4,8 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
+from src.data.images import list_images
+
 # fmt: off
 CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
            'A', 'B', 'D', 'E', 'G', 'H', 'J', 'K', 'L', 'N',
@@ -81,12 +83,11 @@ def evaluate_yolo():
     # Фильтр ниже возьмет на себя работу по отсечению шума!
     CONF_THRESHOLD = 0.4
 
-    print(
-        f"\n🔍 Оценка на {len(list(test_dir.glob('*.jpeg')))} тестовых изображениях "
-        f"(conf={CONF_THRESHOLD}, строгий фильтр)...\n"
-    )
+    test_images = list_images(test_dir)
+    n_images = len(test_images)
+    print(f"\n🔍 Оценка на {n_images} тестовых изображениях (conf={CONF_THRESHOLD}, строгий фильтр)...\n")
 
-    for img_path in sorted(test_dir.glob("*.jpeg")):
+    for img_path in test_images:
         stem = img_path.stem
         txt_path = labels_dir / f"{stem}.txt"
 
@@ -119,7 +120,7 @@ def evaluate_yolo():
             status = "❌"
 
         total += 1
-        print(f"[{total:2d}/20] {status} GT: {gt_str: <10} | Pred: {pred_str: <10}")
+        print(f"[{total:2d}/{n_images}] {status} GT: {gt_str: <10} | Pred: {pred_str: <10}")
 
     accuracy = correct / total if total > 0 else 0
     print("\n" + "=" * 55)

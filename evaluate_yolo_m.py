@@ -4,6 +4,8 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
+from src.data.images import list_images
+
 # fmt: off
 CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
            'A', 'B', 'D', 'E', 'G', 'H', 'J', 'K', 'L', 'N',
@@ -67,9 +69,11 @@ def evaluate():
     total = 0
     CONF_THRESHOLD = 0.25  # Начнем с 0.25, новая модель лучше калибрована
 
-    print(f"\n🔍 Оценка YOLOv8m на {len(list(test_dir.glob('*.jpeg')))} изображениях...\n")
+    test_images = list_images(test_dir)
+    n_images = len(test_images)
+    print(f"\n🔍 Оценка YOLOv8m на {n_images} изображениях...\n")
 
-    for img_path in sorted(test_dir.glob("*.jpeg")):
+    for img_path in test_images:
         stem = img_path.stem
         txt_path = labels_dir / f"{stem}.txt"
         gt_str = get_gt_from_txt(txt_path)
@@ -97,7 +101,7 @@ def evaluate():
             status = "❌"
 
         total += 1
-        print(f"[{total:2d}/20] {status} GT: {gt_str: <10} | Pred: {pred_str: <10}")
+        print(f"[{total:2d}/{n_images}] {status} GT: {gt_str: <10} | Pred: {pred_str: <10}")
 
     accuracy = correct / total
     print("\n" + "=" * 55)

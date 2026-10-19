@@ -6,6 +6,8 @@ from pathlib import Path
 import albumentations as A
 import cv2
 
+from src.data.images import list_images
+
 # Пути
 SRC_IMAGES = Path("yolo_dataset/images/train")
 SRC_LABELS = Path("yolo_dataset/labels/train")
@@ -46,7 +48,7 @@ transform = A.Compose(
 
 
 def augment_dataset():
-    image_files = list(SRC_IMAGES.glob("*.jpeg"))
+    image_files = list_images(SRC_IMAGES)
     print(f"Найдено {len(image_files)} исходных изображений для аугментации.")
 
     total_generated = 0
