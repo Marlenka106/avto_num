@@ -1,5 +1,7 @@
 """Тестирование функции потерь FCOS."""
+
 import torch
+
 from src.models.fcos import FCOSDetector
 from src.models.loss import FCOSLoss
 
@@ -25,7 +27,7 @@ targets = [
     {
         'boxes': torch.tensor([[50, 50, 150, 150]], dtype=torch.float32).to(device),
         'labels': torch.tensor([3], dtype=torch.long).to(device),
-    }
+    },
 ]
 
 # Forward pass
@@ -37,7 +39,7 @@ logits, bbox_reg, centerness = model(dummy_input)
 print("Вычисление функции потерь...")
 losses = loss_fn(logits, bbox_reg, centerness, targets)
 
-print(f"\n✅ Loss вычислен успешно!")
+print("\n✅ Loss вычислен успешно!")
 print(f"Total loss: {losses['total_loss'].item():.4f}")
 print(f"Classification loss: {losses['loss_cls'].item():.4f}")
 print(f"Bounding box loss: {losses['loss_bbox'].item():.4f}")

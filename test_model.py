@@ -1,5 +1,7 @@
 """Тестирование архитектуры FCOS модели."""
+
 import torch
+
 from src.models.fcos import FCOSDetector
 
 # Создаём модель
@@ -20,9 +22,9 @@ print("\nЗапуск forward pass...")
 model.train()
 logits, bbox_reg, centerness = model(dummy_input)
 
-print(f"✅ Forward pass успешен!")
+print("✅ Forward pass успешен!")
 print(f"Количество уровней пирамиды: {len(logits)}")
-for i, (log, reg, cent) in enumerate(zip(logits, bbox_reg, centerness)):
+for i, (log, reg, cent) in enumerate(zip(logits, bbox_reg, centerness, strict=False)):
     print(f"  Уровень {i}:")
     print(f"    Logits shape: {log.shape}")
     print(f"    BBox reg shape: {reg.shape}")
@@ -30,14 +32,14 @@ for i, (log, reg, cent) in enumerate(zip(logits, bbox_reg, centerness)):
 
 # Тест backward pass (градиенты)
 print("\nПроверка backward pass...")
-dummy_loss = sum(log.mean() + reg.mean() + cent.mean() 
-                 for log, reg, cent in zip(logits, bbox_reg, centerness))
+dummy_loss = sum(
+    log.mean() + reg.mean() + cent.mean() for log, reg, cent in zip(logits, bbox_reg, centerness, strict=False)
+)
 dummy_loss.backward()
 print(f"✅ Backward pass успешен! Loss: {dummy_loss.item():.4f}")
 
 # Проверяем, что градиенты действительно вычислились
-has_grad = any(p.grad is not None and p.grad.abs().sum() > 0 
-               for p in model.parameters())
+has_grad = any(p.grad is not None and p.grad.abs().sum() > 0 for p in model.parameters())
 print(f"✅ Градиенты вычислены: {has_grad}")
 
 print("\n🎉 Модель полностью работоспособна!")

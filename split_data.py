@@ -1,4 +1,5 @@
 """Честное разделение train выборки на train (80%) и val (20%)."""
+
 import random
 import shutil
 from pathlib import Path
@@ -10,7 +11,7 @@ val_dir = Path("number_plates/val")
 val_dir.mkdir(exist_ok=True)
 
 # Находим все уникальные имена файлов (без расширения)
-stems = list(set([p.stem for p in train_dir.glob("*.jpeg")]))
+stems = list({p.stem for p in train_dir.glob("*.jpeg")})
 random.shuffle(stems)
 
 # Делим 80/20

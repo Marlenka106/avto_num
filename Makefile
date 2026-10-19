@@ -1,7 +1,21 @@
-.PHONY: install augment train-yolo eval-yolo train-fcos eval-fcos report clean
+.PHONY: install lint format test check augment train-yolo eval-yolo train-fcos eval-fcos report clean
 
 install:
-	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
+	pre-commit install
+
+lint:
+	ruff check .
+	ruff format --check .
+
+format:
+	ruff check --fix .
+	ruff format .
+
+test:
+	pytest
+
+check: lint test
 
 augment:
 	python augment_data.py

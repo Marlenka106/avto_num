@@ -25,6 +25,7 @@ avto_num/
 ├── Makefile__________________# Единая точка входа для всех команд  
 ├── pyproject.toml____________# Современная конфигурация проекта  
 ├── requirements.txt _________# Зависимости Python  
+├── requirements-dev.txt _____# Зависимости для разработки (ruff, pytest, pre-commit)  
 ├── data.yaml ________________# Конфигурация датасета для YOLO  
 ├── README.md ________________# Главная страница репозитория  
 ├── REPORT.md ________________# Полный текстовый отчет  
@@ -50,7 +51,6 @@ avto_num/
 │   │   └── inference.py _____# Декодер и NMS для FCOS  
 │   └── utils/ _______________# Утилиты  
 │       ├── __init __.py  
-│       ├── paths.py _________# Централизованное управление путями  
 │       └── seed.py __________# Фиксация seed для воспроизводимости  
 │  
 ├── .gitignore _______________# Исключает тяжелые файлы из Git  
@@ -96,11 +96,24 @@ make report
 python3.10 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
 ```
 
-## Методология 
+## Разработка
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install   # ruff + ruff format перед каждым коммитом
+
+make lint            # ruff check + ruff format --check
+make test            # pytest
+make check           # всё сразу, как в CI
+```
+
+CI (GitHub Actions) запускает линтеры и тесты на Python 3.10 для каждого PR.
+
+## Методология
 
 1. Честное разделение данных: 80% train, 20% val (из исходного train), 20 test (строго изолированная выборка, не участвовавшая в обучении).  
 2. Аугментация данных: Albumentations pipeline (ShiftScaleRotate, MotionBlur, RandomBrightnessContrast, GaussNoise, CoarseDropout) + встроенные Mosaic/MixUp в YOLO. Итог: увеличение датасета в 4 раза с применением геометрических искажений, шума и изменения освещения.  
@@ -113,7 +126,7 @@ pip install -r requirements.txt
 
 Буквы: A, B, D, E, G, H, J, K, L, N, R, S, T, U, V, X, Z  
 
-## Технологии 
+## Технологии
 
 - Deep Learning: PyTorch 2.5+ (CUDA 12.4), Ultralytics YOLOv8
 - Data Processing: Albumentations, OpenCV, Pandas
@@ -134,6 +147,3 @@ pip install -r requirements.txt
 Статус: Рабочий production-ready прототип с точностью 85% (Exact Match).
 
 Детальный анализ, графики обучения и разбор ошибок доступны в файле REPORT.md и в папке reports/final/.
-
-
-
