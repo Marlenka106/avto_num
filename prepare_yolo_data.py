@@ -6,29 +6,33 @@ from pathlib import Path
 from src.data.images import list_images
 
 
+def read_split(split_file, src_dir):
+    """Читает список файлов сплита, созданный split_data.py."""
+    return [src_dir / name for name in split_file.read_text().split()]
+
+
 def prepare_yolo_dataset():
     # Исходные папки
     src_train = Path("number_plates/train")
-    src_val = Path("number_plates/val")
     src_test = Path("number_plates/test")
+    splits_dir = Path("splits")
 
-    # Целевая структура
+    # Целевая структура (пересоздаём, чтобы не осталось файлов от прошлого сплита)
     dst_root = Path("yolo_dataset")
-    dst_root.mkdir(exist_ok=True)
+    shutil.rmtree(dst_root, ignore_errors=True)
 
     for split in ["train", "val", "test"]:
         (dst_root / "images" / split).mkdir(parents=True, exist_ok=True)
         (dst_root / "labels" / split).mkdir(parents=True, exist_ok=True)
 
     # Функция копирования файлов
-    def copy_split(src_dir, split_name):
+    def copy_split(img_paths, split_name):
         count = 0
-        for img_path in list_images(src_dir):
-            stem = img_path.stem
-            txt = src_dir / f"{stem}.txt"
+        for img_path in img_paths:
+            txt = img_path.with_suffix(".txt")
 
             if not txt.exists():
-                print(f"⚠️  Пропущен {stem}: нет .txt файла")
+                print(f"⚠️  Пропущен {img_path.stem}: нет .txt файла")
                 continue
 
             # Копируем изображение
@@ -40,9 +44,9 @@ def prepare_yolo_dataset():
         print(f"✅ {split_name}: скопировано {count} пар (image + label)")
 
     # Копируем все сплиты
-    copy_split(src_train, "train")
-    copy_split(src_val, "val")
-    copy_split(src_test, "test")
+    copy_split(read_split(splits_dir / "train.txt", src_train), "train")
+    copy_split(read_split(splits_dir / "val.txt", src_train), "val")
+    copy_split(list_images(src_test), "test")
 
     print(f"\n🎉 Датасет подготовлен в {dst_root}")
 

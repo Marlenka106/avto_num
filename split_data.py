@@ -1,33 +1,53 @@
-"""Честное разделение train выборки на train (80%) и val (20%)."""
+"""Детерминированное разделение train выборки на train (80%) и val (20%) без утечки номеров."""
 
 import random
-import shutil
+from collections import defaultdict
 from pathlib import Path
 
 from src.data.images import list_images
 
-random.seed(42)
+TRAIN_DIR = Path("number_plates/train")
+SPLITS_DIR = Path("splits")
+VAL_FRACTION = 0.2
+SEED = 42
 
-train_dir = Path("number_plates/train")
-val_dir = Path("number_plates/val")
-val_dir.mkdir(exist_ok=True)
 
-# Находим все изображения
-images = list_images(train_dir)
-random.shuffle(images)
+def plate_key(txt_path):
+    """Номер как последовательность class_id слева направо."""
+    boxes = [line.split() for line in txt_path.read_text().splitlines()]
+    return " ".join(box[0] for box in sorted(boxes, key=lambda box: float(box[1])))
 
-# Делим 80/20
-val_size = int(0.2 * len(images))
-val_images = images[:val_size]
-train_images = images[val_size:]
 
-print(f"Всего изображений: {len(images)}")
-print(f"Перемещаем в val: {len(val_images)}")
-print(f"Оставляем в train: {len(train_images)}")
+def split_by_plate(images, val_fraction=VAL_FRACTION, seed=SEED):
+    """Делит изображения так, чтобы один номер не попадал одновременно в train и val."""
+    # Один автомобиль снят многократно: случайный сплит по изображениям даёт утечку номеров
+    groups = defaultdict(list)
+    for img_path in images:
+        groups[plate_key(img_path.with_suffix(".txt"))].append(img_path)
 
-# Перемещаем изображения вместе с аннотациями
-for img_path in val_images:
-    for src in [img_path, img_path.with_suffix(".txt"), img_path.with_suffix(".xml")]:
-        shutil.move(str(src), str(val_dir / src.name))
+    keys = sorted(groups)
+    random.Random(seed).shuffle(keys)
 
-print(f"✅ Разделение завершено! Перемещено изображений: {len(val_images)}")
+    train, val = [], []
+    for key in keys:
+        target = val if len(val) < val_fraction * len(images) else train
+        target.extend(groups[key])
+    return sorted(train), sorted(val)
+
+
+def main():
+    images = list_images(TRAIN_DIR)
+    train, val = split_by_plate(images)
+
+    # Сохраняем списки файлов, исходные данные не трогаем
+    SPLITS_DIR.mkdir(exist_ok=True)
+    for name, split in [("train", train), ("val", val)]:
+        (SPLITS_DIR / f"{name}.txt").write_text("".join(f"{p.name}\n" for p in split))
+
+    print(f"Всего изображений: {len(images)}")
+    print(f"train: {len(train)}, val: {len(val)}")
+    print(f"✅ Списки сохранены в {SPLITS_DIR}/")
+
+
+if __name__ == "__main__":
+    main()

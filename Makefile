@@ -1,4 +1,4 @@
-.PHONY: install lint format test check augment train-yolo eval-yolo train-fcos eval-fcos report clean
+.PHONY: install lint format test check split prepare augment train-yolo eval-yolo train-fcos eval-fcos report clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -16,6 +16,12 @@ test:
 	pytest
 
 check: lint test
+
+split:
+	python split_data.py
+
+prepare:
+	python prepare_yolo_data.py
 
 augment:
 	python augment_data.py
