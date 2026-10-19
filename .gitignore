@@ -7,7 +7,7 @@ number_plates/
 number_plates.zip
 yolo_dataset/
 yolo_dataset_augmented/
-data/
+/data/
 *.zip
 
 # Веса моделей и логи обучения
