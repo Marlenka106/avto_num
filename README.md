@@ -1,74 +1,111 @@
-# 🚗 License Plate Character Detection & OCR
+# License Plate Character Detection & OCR
 
-Детектор символов номерных знаков с использованием кастомной архитектуры FCOS и YOLOv8.
+Профессиональный пайплайн для детекции и распознавания символов автомобильных номеров. В ходе исследования была разработана кастомная архитектура FCOS, а для достижения production-качества внедрен и дообучен YOLOv8.
 
-## Результаты
+**Итоговый результат:** **85.0% Exact Match Accuracy** на изолированной тестовой выборке (цель ≥ 80% достигнута ✅).
 
-### YOLOv8 (Production-ready)
-- **mAP50: 96.9%** (валидация)
-- **Exact Match Accuracy: 75%** (тестовая выборка, 20 изображений)
-- **Скорость инференса: ~10ms** на RTX 4060
+---
 
-### FCOS (Кастомная архитектура)
-- mAP50: ~60% (недообучена из-за малого датасета)
-- Full pipeline: backbone → FPN → FCOS head → NMS
+## Результаты экспериментов
+
+| Модель | Обучающая выборка | mAP50 (val) | Exact Match (test) | Статус |
+|---|---|---|---|---|
+| FCOS (Custom) | 349 img | ~60% | ~20% | ❌ Baseline |
+| YOLOv8s | 349 img | 96.9% | 75% | ⚠️ Близко к цели |
+| **YOLOv8m** | **1381 img** (аугментировано) | **98.2%** | **85.0%** | **✅ Цель достигнута** |
+
+*Скорость инференса финальной модели: ~9.5 мс на изображение (NVIDIA RTX 4060).*
+
+---
+
 
 ## Архитектура проекта
+
 avto_num/  
-├── src/  
-│ ├── data/                   # Загрузка данных, аугментации  
-│ │ ├── dataset.py           # PyTorch Dataset  
-│ │ ├── loader.py           # Парсинг XML/TXT аннотаций  
-│ │ └── eda.py           # Разведочный анализ  
-│ ├── models/           # Архитектуры моделей  
-│ │ ├── fcos.py          # FCOS detector  
-│ │ └── loss.py           # Focal + GIoU loss  
-│ ├── training/          # Циклы обучения  
-│ │ └── train.py           # Training loop  
-│ ├── evaluation/         # Инференс и метрики  
-│ │ ├── inference.py       # FCOS inference  
-│ │ └── metrics.py         # mAP, IoU  
-│ └── utils/             # Утилиты  
-│ ├── seed.py           # Reproducibility  
-│ └── paths.py           # Paths management  
-├── number_plates/       # Исходные данные (train/val/test)  
-├── yolo_dataset/         # Данные в формате YOLO  
-├── runs/                 # Логи и веса YOLO  
-├── weights/             # Веса FCOS  
-├── reports/           # Графики и визуализации  
-├── evaluate_yolo.py       # Финальная оценка YOLO  
-├── prepare_yolo_data.py       # Конвертация в YOLO формат  
-├── data.yaml               # Конфиг YOLO  
-└── README.md  
+├── Makefile                  # Единая точка входа для всех команд  
+├── pyproject.toml            # Современная конфигурация проекта  
+├── requirements.txt          # Зависимости Python  
+├── data.yaml                 # Конфигурация датасета для YOLO  
+├── README.md                 # Главная страница репозитория  
+├── REPORT.md                 # Полный текстовый отчет  
+│  
+├── augment_data.py           # Скрипт аугментации данных (Albumentations)  
+├── evaluate_yolo_m.py        # Скрипт оценки финальной модели (YOLOv8m)  
+├── evaluate_fcos_augmented.py# Скрипт оценки кастомной модели (FCOS)  
+├── generate_report.py        # Скрипт генерации графиков для отчета  
+│  
+├── src/                      # Исходный код (модульная архитектура)  
+│   ├── data/                 # Загрузка данных и трансформации  
+│   │   ├── __init__.py  
+│   │   └── dataset.py        # Кастомный PyTorch Dataset  
+│   ├── models/               # Архитектуры нейросетей  
+│   │   ├── __init__.py  
+│   │   ├── fcos.py           # Кастомная архитектура FCOS + FPN  
+│   │   └── loss.py           # Focal Loss + GIoU Loss  
+│   ├── training/             # Циклы обучения  
+│   │   ├── __init__.py  
+│   │   └── train.py          # Training loop с gradient clipping  
+│   ├── evaluation/           # Инференс и метрики  
+│   │   ├── __init__.py  
+│   │   └── inference.py      # Декодер и NMS для FCOS  
+│   └── utils/                # Утилиты  
+│       ├── __init__.py  
+│       ├── paths.py          # Централизованное управление путями  
+│       └── seed.py           # Фиксация seed для воспроизводимости  
+│  
+├── .gitignore                # Исключает тяжелые файлы из Git  
+│  
+# --- Директории, игнорируемые в Git (.gitignore), но присутствующие локально: ---  
+├── .venv/                    # Виртуальное окружение Python  
+├── number_plates/            # Исходные сырые данные (456 изображений)  
+├── yolo_dataset_augmented/   # Аугментированный датасет (1381 изображение)  
+├── runs/                     # Артефакты и логи обучения YOLO  
+├── weights/                  # Сохраненные веса модели FCOS  
+└── reports/                  # Сгенерированные графики и визуализации  
 
 
-## Быстрый старт
+## Быстрый старт(Quick Start)  
 
-### Установка зависимостей
+Проект использует `Makefile` как единую точку входа для удобства воспроизведения результатов.  
+
+```bash
+# 1. Клонирование репозитория
+git clone https://github.com/Marlenka106/avto_num.git
+cd avto_num
+
+# 2. Создание окружения и установка зависимостей
+make install
+
+# 3. Аугментация данных (генерирует ~1381 изображение из 349 исходных)
+make augment
+
+# 4. Обучение финальной модели (YOLOv8m)
+make train-yolo
+
+# 5. Оценка точности на тестовой выборке
+make eval-yolo
+
+# 6. Генерация финального отчета с графиками
+make report
+```
+
+### Детальная настройка окружения (если make install требует уточнений)  
+Для корректной работы с GPU (CUDA 12.4) рекомендуется устанавливать PyTorch явно:  
+
 ```bash
 python3.10 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-pip install ultralytics opencv-python-headless pandas matplotlib seaborn scikit-learn tqdm Pillow pyyaml loguru albumentations
+pip install -r requirements.txt
 ```
 
-### Обучение YOLOv8 
-
-```bash
-yolo detect train data=data.yaml model=yolov8s.pt epochs=100 imgsz=640 batch=8 patience=20
-```
-
-### Оценка точности
-
-```bash
-python evaluate_yolo.py
-```
 ## Методология 
 
-1. Разделение данных: 80% train, 20% val (из исходного train), 20 test (изолированная выборка)
-2. Аугментации: Mosaic, MixUp, ColorJitter, RandomAffine
-3. Early Stopping: patience=20 эпох
-4. Постобработка: геометрическая фильтрация + ограничение длины номера (≤7 символов)  
+1. Честное разделение данных: 80% train, 20% val (из исходного train), 20 test (строго изолированная выборка, не участвовавшая в обучении).  
+2. Аугментация данных: Albumentations pipeline (ShiftScaleRotate, MotionBlur, RandomBrightnessContrast, GaussNoise, CoarseDropout) + встроенные Mosaic/MixUp в YOLO. Итог: увеличение датасета в 4 раза с применением геометрических искажений, шума и изменения освещения.  
+3. Early Stopping: patience=25 эпох для предотвращения переобучения.  
+4. Постобработка: Кастомный геометрический фильтр, отбрасывающий фантомные детекции на основе анализа медианной высоты и горизонтального выравнивания, с ограничением максимальной длины номера (≤7 символов).  
 
 ## Классы (27 символов)  
 
@@ -76,38 +113,27 @@ python evaluate_yolo.py
 
 Буквы: A, B, D, E, G, H, J, K, L, N, R, S, T, U, V, X, Z  
 
-## TODO  
-
-- Увеличить датасет (аугментация существующих данных)
-- Попробовать YOLOv8m/l для лучшей точности
-- Добавить OCR-постобработку (CRNN/SVTR)
-- Ensemble из нескольких моделей
-- Оптимизация для edge-устройств (TensorRT, ONNX)  
-
 ## Технологии 
 
-- PyTorch 2.5+ с CUDA 12.4
-- Ultralytics YOLOv8 для production-детекции
-- Кастомная FCOS для исследовательских целей
-- Python 3.10
-- Ubuntu 24.04 + RTX 4060  
+- Deep Learning: PyTorch 2.5+ (CUDA 12.4), Ultralytics YOLOv8
+- Data Processing: Albumentations, OpenCV, Pandas
+- Visualization: Matplotlib, Seaborn
+- Environment: Python 3.10, Ubuntu 24.04, NVIDIA RTX 4060 Laptop (8GB VRAM)
+
+## Дальнейшее развитие  
+
+- Сбор реальных hard-negative примеров (изображений, на которых модель ошиблась) для дообучения.
+- Реализация двухэтапного пайплайна: YOLO (детекция) + CRNN/SVTR (распознавание символов по кропам) для устранения ошибок типа D↔B или J↔L.
+- Ансамблирование моделей (YOLOv8m + YOLOv8l) для повышения робастности.
+- Экспорт модели в форматы ONNX / TensorRT для деплоя на edge-устройства.
+
 
 ## Лицензия
 Учебный проект.  
 
-Статус: Рабочий прототип с точностью 75% (Exact Match)  
+Статус: Рабочий production-ready прототип с точностью 85% (Exact Match).
 
-Цель: Довести до 80%+ через аугментацию и более мощные модели
+Детальный анализ, графики обучения и разбор ошибок доступны в файле REPORT.md и в папке reports/final/.
 
-## Финальные результаты (После аугментации и YOLOv8m)
 
-- **mAP50:** 98.2%
-- **Exact Match Accuracy:** 85.0% (17/20 на изолированном тесте)
-- **Размер обучающей выборки:** 1381 изображение (аугментировано из 349)
-- **Модель:** YOLOv8m (25.8M параметров)
-
-### Как повторить результат:
-1. Сгенерировать аугментированный датасет: `python augment_data.py`
-2. Обучить модель: `yolo detect train data=data.yaml model=yolov8m.pt epochs=100 imgsz=640 batch=8 patience=25 project=runs/yolo_aug name=plates_detector_m`
-3. Оценить точность: `python evaluate_yolo_m.py`
 

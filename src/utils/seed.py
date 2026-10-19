@@ -4,9 +4,9 @@ import random
 import numpy as np
 import torch
 
-def set_seed(seed=42):
-    """Устанавливает случайное зерно для всех генераторов."""
-    os.environ['PYTHONHASHSEED'] = str(seed)
+def set_seed(seed: int = 42) -> None:
+    """Фиксирует random seed для Python, NumPy и PyTorch."""
+    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
