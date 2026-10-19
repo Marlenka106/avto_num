@@ -73,28 +73,29 @@ def main():
     logger.info(f"Using device: {device}")
     
     epochs = 60
-    batch_size = 2
+    batch_size = 4
     lr = 1e-4  # Уменьшенный learning rate
     
-    # 2. Данные
-    logger.info("Loading datasets...")
+    # 2. Данные (УКАЗЫВАЕМ НА АУГМЕНТИРОВАННЫЙ ДАТАСЕТ)
+    logger.info("Loading augmented datasets...")
     train_dataset = PlateCharDataset(
-        img_dir="number_plates/train",
-        txt_dir="number_plates/train",
+        img_dir="yolo_dataset_augmented/images/train",
+        txt_dir="yolo_dataset_augmented/labels/train",
         transforms=get_transform(train=True)
     )
     val_dataset = PlateCharDataset(
-        img_dir="number_plates/val",
-        txt_dir="number_plates/val",
+        img_dir="yolo_dataset_augmented/images/val",
+        txt_dir="yolo_dataset_augmented/labels/val",
         transforms=get_transform(train=False)
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
-                              collate_fn=collate_fn, num_workers=2, pin_memory=True)
+                              collate_fn=collate_fn, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, 
-                            collate_fn=collate_fn, num_workers=2, pin_memory=True)
+                            collate_fn=collate_fn, num_workers=4, pin_memory=True)
     
     logger.info(f"Train: {len(train_dataset)} images, Val: {len(val_dataset)} images")
+    
     
     # 3. Модель и оптимизатор
     logger.info("Initializing model...")
