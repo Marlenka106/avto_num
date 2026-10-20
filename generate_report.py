@@ -125,7 +125,7 @@ if fcos_history.exists():
     with open(fcos_history) as f:
         history = json.load(f)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, (ax, ax_em) = plt.subplots(1, 2, figsize=(16, 5))
     epochs = range(1, len(history['train_loss']) + 1)
     ax.plot(epochs, history['train_loss'], 'o-', label='Train Loss', color='#3498db', linewidth=2)
     ax.plot(epochs, history['val_loss'], 's-', label='Val Loss', color='#e74c3c', linewidth=2)
@@ -134,6 +134,15 @@ if fcos_history.exists():
     ax.set_title('Кастомная FCOS: кривые обучения', fontsize=14, fontweight='bold')
     ax.legend()
     ax.grid(True, alpha=0.3)
+
+    # По Exact Match на val выбирается чекпоинт
+    ax_em.plot(epochs, history['val_exact_match'], 'o-', color='#27ae60', linewidth=2)
+    ax_em.axhline(y=0.8, color='red', linestyle='--', alpha=0.6, label='Цель 80%')
+    ax_em.set_xlabel('Эпоха', fontsize=12)
+    ax_em.set_ylabel('Exact Match', fontsize=12)
+    ax_em.set_title('Кастомная FCOS: Exact Match (val)', fontsize=14, fontweight='bold')
+    ax_em.legend()
+    ax_em.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.savefig(REPORT_DIR / "04_fcos_training.png", dpi=150, bbox_inches='tight')
