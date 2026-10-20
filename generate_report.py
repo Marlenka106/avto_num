@@ -1,14 +1,11 @@
 """Генерация всех визуализаций для финального отчета."""
 
 import json
-import xml.etree.ElementTree as ET
-from collections import Counter
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from matplotlib.patches import Patch
 from ultralytics import YOLO
 
 from evaluate import evaluate, make_yolo_predictor
@@ -28,48 +25,9 @@ print("🎨 Генерация визуализаций для отчета")
 print("=" * 60)
 
 # ============================================================
-# 1. РАСПРЕДЕЛЕНИЕ КЛАССОВ В ДАТАСЕТЕ
+# 1. ГРАФИКИ ОБУЧЕНИЯ YOLOv8s (первая модель)
 # ============================================================
-print("\n📊 1/7: Распределение классов...")
-
-all_chars = []
-for xml_path in Path("number_plates/train").glob("*.xml"):
-    tree = ET.parse(xml_path)
-    for obj in tree.getroot().findall("object"):
-        all_chars.append(obj.find("name").text)
-
-char_counts = Counter(all_chars)
-df_dist = pd.DataFrame({'Символ': list(char_counts.keys()), 'Количество': list(char_counts.values())}).sort_values(
-    'Символ'
-)
-
-fig, ax = plt.subplots(figsize=(14, 5))
-colors = ['#2ecc71' if c.isdigit() else '#3498db' for c in df_dist['Символ']]
-ax.bar(df_dist['Символ'], df_dist['Количество'], color=colors, edgecolor='black', linewidth=0.5)
-ax.set_xlabel('Класс символа', fontsize=12)
-ax.set_ylabel('Количество в train-наборе', fontsize=12)
-ax.set_title('Распределение классов в исходном датасете (349 изображений)', fontsize=14, fontweight='bold')
-ax.axhline(
-    df_dist['Количество'].mean(), color='red', linestyle='--', label=f'Среднее: {df_dist["Количество"].mean():.1f}'
-)
-ax.legend()
-
-# Легенда
-legend_elements = [
-    Patch(facecolor='#2ecc71', label='Цифры (10 классов)'),
-    Patch(facecolor='#3498db', label='Буквы (17 классов)'),
-]
-ax.legend(handles=[*legend_elements, plt.Line2D([0], [0], color='red', linestyle='--', label='Среднее')])
-
-plt.tight_layout()
-plt.savefig(REPORT_DIR / "01_class_distribution.png", dpi=150, bbox_inches='tight')
-plt.close()
-print(f"   ✅ Сохранено: {REPORT_DIR / '01_class_distribution.png'}")
-
-# ============================================================
-# 2. ГРАФИКИ ОБУЧЕНИЯ YOLOv8s (первая модель)
-# ============================================================
-print("\n📈 2/7: Кривые обучения YOLOv8s...")
+print("\n📈 1/5: Кривые обучения YOLOv8s...")
 
 results_path_1 = Path("runs/detect/runs/yolo/plates_detector/results.csv")
 if results_path_1.exists():
@@ -106,7 +64,7 @@ if results_path_1.exists():
     axes[2].set_title('Losses (box / cls)')
     axes[2].legend(fontsize=8)
 
-    plt.suptitle('Обучение YOLOv8s на исходных данных (349 изображений)', fontsize=14, fontweight='bold', y=1.02)
+    plt.suptitle('Обучение YOLOv8s на исходных данных', fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.savefig(REPORT_DIR / "02_yolov8s_training.png", dpi=150, bbox_inches='tight')
     plt.close()
@@ -115,9 +73,9 @@ else:
     print(f"   ⚠️  Файл не найден: {results_path_1}")
 
 # ============================================================
-# 3. ГРАФИКИ ОБУЧЕНИЯ YOLOv8m (аугментированные данные)
+# 2. ГРАФИКИ ОБУЧЕНИЯ YOLOv8m (аугментированные данные)
 # ============================================================
-print("\n📈 3/7: Кривые обучения YOLOv8m на аугментированных данных...")
+print("\n📈 2/5: Кривые обучения YOLOv8m на аугментированных данных...")
 
 results_path_2 = Path("runs/yolo_aug/plates_detector_m/results.csv")
 if results_path_2.exists():
@@ -131,7 +89,6 @@ if results_path_2.exists():
     axes[0].set_ylabel('mAP@0.5')
     axes[0].set_title('YOLOv8m: mAP@0.5 (val)')
     axes[0].axhline(0.80, color='red', linestyle='--', alpha=0.5, label='Цель 80%')
-    axes[0].axhline(0.982, color='gold', linestyle=':', linewidth=2, label='Достигнуто: 98.2%')
     axes[0].legend()
 
     axes[1].plot(
@@ -152,18 +109,16 @@ if results_path_2.exists():
     axes[2].set_title('Losses (box / cls)')
     axes[2].legend(fontsize=8)
 
-    plt.suptitle(
-        'Обучение YOLOv8m на аугментированных данных (1381 изображение)', fontsize=14, fontweight='bold', y=1.02
-    )
+    plt.suptitle('Обучение YOLOv8m на аугментированных данных', fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.savefig(REPORT_DIR / "03_yolov8m_training.png", dpi=150, bbox_inches='tight')
     plt.close()
     print(f"   ✅ Сохранено: {REPORT_DIR / '03_yolov8m_training.png'}")
 
 # ============================================================
-# 4. ГРАФИКИ ОБУЧЕНИЯ FCOS (кастомная архитектура)
+# 3. ГРАФИКИ ОБУЧЕНИЯ FCOS (кастомная архитектура)
 # ============================================================
-print("\n📈 4/7: Кривые обучения FCOS...")
+print("\n📈 3/5: Кривые обучения FCOS...")
 
 fcos_history = Path("weights/history.json")
 if fcos_history.exists():
@@ -176,7 +131,7 @@ if fcos_history.exists():
     ax.plot(epochs, history['val_loss'], 's-', label='Val Loss', color='#e74c3c', linewidth=2)
     ax.set_xlabel('Эпоха', fontsize=12)
     ax.set_ylabel('Loss', fontsize=12)
-    ax.set_title('Кастомная FCOS: кривые обучения (1381 изображение)', fontsize=14, fontweight='bold')
+    ax.set_title('Кастомная FCOS: кривые обучения', fontsize=14, fontweight='bold')
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -188,54 +143,9 @@ else:
     print(f"   ⚠️  История FCOS не найдена: {fcos_history}")
 
 # ============================================================
-# 5. СРАВНИТЕЛЬНАЯ ТАБЛИЦА МОДЕЛЕЙ
+# 4. ПРИМЕРЫ ПРЕДСКАЗАНИЙ YOLOv8m (успехи и ошибки)
 # ============================================================
-print("\n📊 5/7: Сравнительная таблица...")
-
-comparison_data = {
-    'Модель': ['FCOS (349 img)', 'FCOS (1381 img)', 'YOLOv8s (349 img)', 'YOLOv8m (1381 img)'],
-    'Параметры': ['17.9M', '17.9M', '11.1M', '25.8M'],
-    'Обуч. выборка': [349, 1381, 349, 1381],
-    'mAP50 (val)': ['~60%', '—', '96.9%', '98.2%'],
-    'Exact Match': ['~20%', '65%', '75%', '85%'],
-    'Скорость (ms)': ['~15', '~15', '~10.5', '~9.5'],
-    'Статус': ['❌ Не достигла', '⚠️ Близко к цели', '⚠️ Близко к цели', '✅ Цель достигнута'],
-}
-df_comp = pd.DataFrame(comparison_data)
-
-fig, ax = plt.subplots(figsize=(14, 4))
-ax.axis('off')
-
-table = ax.table(
-    cellText=df_comp.values,
-    colLabels=df_comp.columns,
-    cellLoc='center',
-    loc='center',
-    colWidths=[0.22, 0.12, 0.14, 0.14, 0.14, 0.12, 0.18],
-)
-table.auto_set_font_size(False)
-table.set_fontsize(10)
-table.scale(1, 2.5)
-
-# Раскраска заголовка
-for j in range(len(df_comp.columns)):
-    table[0, j].set_facecolor('#34495e')
-    table[0, j].set_text_props(color='white', fontweight='bold')
-
-# Раскраска строки победителя
-for j in range(len(df_comp.columns)):
-    table[4, j].set_facecolor('#d5f4e6')
-    table[4, j].set_text_props(fontweight='bold')
-
-plt.title('Сравнение архитектур и подходов', fontsize=14, fontweight='bold', pad=20)
-plt.savefig(REPORT_DIR / "05_comparison_table.png", dpi=150, bbox_inches='tight')
-plt.close()
-print(f"   ✅ Сохранено: {REPORT_DIR / '05_comparison_table.png'}")
-
-# ============================================================
-# 6. ПРИМЕРЫ ПРЕДСКАЗАНИЙ YOLOv8m (успехи и ошибки)
-# ============================================================
-print("\n🖼️  6/7: Примеры предсказаний YOLOv8m...")
+print("\n🖼️  4/5: Примеры предсказаний YOLOv8m...")
 
 model = YOLO("runs/yolo_aug/plates_detector_m/weights/best.pt")
 test_dir = Path("yolo_dataset_augmented/images/test")
@@ -275,9 +185,9 @@ plt.close()
 print(f"   ✅ Сохранено: {REPORT_DIR / '06_prediction_examples.png'}")
 
 # ============================================================
-# 7. АНАЛИЗ ОШИБОК (ТИПЫ ОШИБОК)
+# 5. АНАЛИЗ ОШИБОК (ТИПЫ ОШИБОК)
 # ============================================================
-print("\n🔍 7/7: Анализ типов ошибок...")
+print("\n🔍 5/5: Анализ типов ошибок...")
 
 error_types = {'Пропуск символа': 0, 'Лишний символ (фантом)': 0, 'Подстановка символа': 0, 'Правильно': 0}
 
@@ -327,4 +237,3 @@ print(f"\n📁 Папка с отчетом: {REPORT_DIR.absolute()}")
 print("\nСодержимое:")
 for f in sorted(REPORT_DIR.glob("*.png")):
     print(f"  • {f.name}")
-print("\nТеперь создайте REPORT.md по шаблону ниже.")
