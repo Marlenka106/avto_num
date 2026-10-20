@@ -4,7 +4,7 @@ FCOS_WEIGHTS ?= weights/best.pt
 SPLIT ?= test
 CONF ?= 0.25
 
-.PHONY: install lint format test check split prepare augment data train-yolo eval-yolo train-fcos eval-fcos report clean
+.PHONY: install lint format test check eda split prepare augment data train-yolo eval-yolo train-fcos eval-fcos report clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -22,6 +22,9 @@ test:
 	pytest
 
 check: lint test
+
+eda:
+	python explore_data.py
 
 split:
 	python split_data.py

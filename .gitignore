@@ -40,9 +40,8 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 
-# Отчеты с картинками (слишком большие для GitHub)
-reports/figures/*.png
-reports/figures/*.pdf
+# Предсказания FCOS (графики EDA коммитим)
+reports/figures/test_pred_*.png
 
 # Временные файлы
 *.log
