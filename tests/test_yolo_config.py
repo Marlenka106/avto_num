@@ -28,3 +28,13 @@ def test_train_config_disables_flips_and_fixes_seed():
     assert config["fliplr"] == 0.0
     assert config["seed"] == 42
     assert config["data"] == "yolo_dataset_augmented/data.yaml"
+
+
+def test_train_config_lists_augmentations_and_keeps_previous_runs():
+    config = yaml.safe_load((ROOT / "configs" / "yolo_train.yaml").read_text())
+
+    augmentations = ["hsv_h", "hsv_s", "hsv_v", "degrees", "translate", "scale", "shear", "perspective"]
+    augmentations += ["flipud", "fliplr", "mosaic", "close_mosaic", "mixup", "copy_paste"]
+    assert all(key in config for key in augmentations)
+    assert config["mixup"] == 0.0
+    assert config["exist_ok"] is False

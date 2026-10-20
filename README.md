@@ -36,7 +36,7 @@ avto_num/
 ├── pyproject.toml            # Настройки ruff и pytest
 ├── requirements.txt          # Зависимости Python (версии зафиксированы)
 ├── requirements-dev.txt      # Зависимости для разработки (ruff, pytest, pre-commit)
-├── configs/yolo_train.yaml   # Гиперпараметры обучения YOLO (без отражений, seed)
+├── configs/yolo_train.yaml   # Гиперпараметры и аугментации обучения YOLO (без отражений, seed)
 ├── splits/                   # Списки train/val: деление по номеру, только полная разметка
 ├── README.md
 ├── REPORT.md                 # Отчёт: подход, история экспериментов, статус
@@ -46,6 +46,7 @@ avto_num/
 ├── prepare_yolo_data.py      # Сборка yolo_dataset по спискам и генерация data.yaml
 ├── augment_data.py           # Offline-аугментация train (Albumentations)
 ├── evaluate.py               # Оценка YOLO и FCOS: Exact Match, CER, 95% ДИ
+├── demo.py                   # Демонстрация: распознавание номеров на любых изображениях
 ├── generate_report.py        # Графики обучения и примеры предсказаний для отчёта
 │
 ├── src/
@@ -96,7 +97,8 @@ make eda
 # 4. Подготовка YOLO-датасета по спискам splits/*.txt и аугментация (исходные данные не изменяются)
 make data
 
-# 5. Обучение YOLOv8m (гиперпараметры в configs/yolo_train.yaml)
+# 5. Обучение YOLOv8m (гиперпараметры и все аугментации в configs/yolo_train.yaml).
+#    Прошлый прогон не перезаписывается: перенесите runs/yolo_aug/plates_detector_m или задайте YOLO_RUN=...
 make train-yolo
 
 # 6. Подбор порога уверенности на val и финальная оценка на test
@@ -105,9 +107,12 @@ make eval-yolo SPLIT=test CONF=0.25
 
 # 7. Графики для отчёта
 make report
+
+# 8. Демонстрация: номер для каждого изображения папки (по умолчанию number_plates/test)
+make demo IMAGES=number_plates/test
 ```
 
-FCOS: `make train-fcos` (веса в `weights/best.pt`), затем `make eval-fcos SPLIT=val CONF="0.2 0.3 0.4"` и `make eval-fcos SPLIT=test CONF=0.3`.
+FCOS: `make train-fcos` (веса в `weights/best.pt`, история обучения пишется в `weights/history.json` после каждой эпохи; если `weights/best.pt` уже есть, обучение не запускается), затем `make eval-fcos SPLIT=val CONF="0.2 0.3 0.4"` и `make eval-fcos SPLIT=test CONF=0.3`.
 
 ### Детальная настройка окружения
 
