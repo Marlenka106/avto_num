@@ -44,9 +44,9 @@ class TestComputeTargets:
     def loss_fn(self):
         return FCOSLoss(num_classes=NUM_CLASSES)
 
-    def _targets(self, loss_fn, boxes, labels, size=(1, 1)):
+    def _targets(self, loss_fn, boxes, labels):
         locations = [torch.tensor([[float(x), float(y)] for y in range(0, 64, 8) for x in range(0, 64, 8)])]
-        return loss_fn.compute_targets(locations, boxes[None], labels[None], [size])
+        return loss_fn.compute_targets(locations, boxes[None], labels[None])
 
     def test_point_inside_box_is_positive_with_its_label(self, loss_fn):
         boxes = torch.tensor([[4.0, 4.0, 20.0, 20.0]])
@@ -86,6 +86,16 @@ class TestComputeTargets:
 
         point_8_8 = 1 * 8 + 1
         assert ctr_t[0, point_8_8].item() == pytest.approx(1.0, abs=1e-5)
+
+    def test_object_is_assigned_to_pyramid_level_by_size(self, loss_fn):
+        # Одна и та же точка на P3 и P4: max(l, t, r, b) = 98 попадает только в диапазон P4 (64-128)
+        locations = [torch.tensor([[32.0, 32.0]]), torch.tensor([[32.0, 32.0]])]
+        boxes = torch.tensor([[[0.0, 0.0, 130.0, 64.0]]])
+
+        cls_t, _, _ = loss_fn.compute_targets(locations, boxes, torch.tensor([[7]]))
+
+        assert cls_t[0, 0].sum().item() == 0
+        assert cls_t[0, 1].argmax().item() == 7
 
 
 def test_forward_returns_finite_losses_and_backpropagates():

@@ -6,6 +6,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import ResNet18_Weights, resnet18
+from torchvision.ops.misc import FrozenBatchNorm2d
+
+# Strides уровней пирамиды P3, P4, P5
+STRIDES = [8, 16, 32]
+
+
+def compute_locations(features, strides=STRIDES):
+    """Координаты центров ячеек каждого уровня пирамиды в пикселях входного изображения."""
+    locations = []
+    for feature, stride in zip(features, strides, strict=True):
+        h, w = feature.shape[-2:]
+        shifts_x = torch.arange(0, w * stride, stride, dtype=torch.float32, device=feature.device) + stride // 2
+        shifts_y = torch.arange(0, h * stride, stride, dtype=torch.float32, device=feature.device) + stride // 2
+        shift_y, shift_x = torch.meshgrid(shifts_y, shifts_x, indexing='ij')
+        locations.append(torch.stack([shift_x.reshape(-1), shift_y.reshape(-1)], dim=1))
+    return locations
 
 
 class FPN(nn.Module):
@@ -75,11 +91,11 @@ class FCOSHead(nn.Module):
         self.bbox_pred = nn.Conv2d(in_channels, 4, kernel_size=3, padding=1)  # l, t, r, b
         self.centerness = nn.Conv2d(in_channels, 1, kernel_size=3, padding=1)
 
-        # Инициализация весов
+        # Инициализация весов как в FCOS/RetinaNet: маленькие начальные выходы стабилизируют exp в регрессии
         for modules in [self.cls_tower, self.bbox_tower, self.cls_logits, self.bbox_pred, self.centerness]:
             for layer in modules.modules():
                 if isinstance(layer, nn.Conv2d):
-                    nn.init.kaiming_normal_(layer.weight, a=1)
+                    nn.init.normal_(layer.weight, std=0.01)
                     nn.init.constant_(layer.bias, 0)
 
         # Инициализация bias для классификации (focal loss prior)
@@ -101,7 +117,7 @@ class FCOSHead(nn.Module):
             bbox_tower_out = self.bbox_tower(feature)
 
             logits.append(self.cls_logits(cls_tower_out))
-            bbox_reg.append(torch.exp(self.bbox_pred(bbox_tower_out)))  # exp для положительности
+            bbox_reg.append(self.bbox_pred(bbox_tower_out))
             centerness.append(self.centerness(bbox_tower_out))
 
         return logits, bbox_reg, centerness
@@ -114,8 +130,10 @@ class FCOSDetector(nn.Module):
         super().__init__()
         self.num_classes = num_classes
 
-        # Backbone: ResNet-18 с предобученными весами
-        backbone = resnet18(weights=ResNet18_Weights.DEFAULT) if backbone_pretrained else resnet18(weights=None)
+        # Backbone: ResNet-18 с предобученными весами; BN заморожен - при batch=4 его статистика слишком шумная
+        backbone = resnet18(
+            weights=ResNet18_Weights.DEFAULT if backbone_pretrained else None, norm_layer=FrozenBatchNorm2d
+        )
 
         # Извлекаем нужные слои (C3, C4, C5)
         self.conv1 = backbone.conv1
@@ -133,11 +151,8 @@ class FCOSDetector(nn.Module):
         # Head
         self.head = FCOSHead(in_channels=256, num_classes=num_classes)
 
-        # Strides для каждого уровня пирамиды
-        self.strides = [8, 16, 32]
-
-        # Centerness branch (shared across levels)
-        self.scales = nn.ModuleList([Scale(init=1.0) for _ in range(3)])
+        # Learnable scale для регрессии на каждом уровне пирамиды
+        self.scales = nn.ModuleList([Scale(init=1.0) for _ in STRIDES])
 
     def forward(self, x):
         """
@@ -160,8 +175,10 @@ class FCOSDetector(nn.Module):
         # Head
         logits, bbox_reg, centerness = self.head(features)
 
-        # Применяем scales для bbox_reg (learnable scale per level)
-        bbox_reg = [scale(reg) for scale, reg in zip(self.scales, bbox_reg, strict=False)]
+        # Расстояния l, t, r, b в пикселях: exp(scale * x) * stride, как в FCOS
+        bbox_reg = [
+            torch.exp(scale(reg)) * stride for scale, reg, stride in zip(self.scales, bbox_reg, STRIDES, strict=True)
+        ]
 
         return logits, bbox_reg, centerness
 

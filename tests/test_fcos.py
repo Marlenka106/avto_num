@@ -2,11 +2,12 @@
 
 import pytest
 import torch
+from torch import nn
+from torchvision.ops.misc import FrozenBatchNorm2d
 
-from src.models.fcos import FPN, FCOSDetector, FCOSHead, Scale
+from src.models.fcos import FPN, STRIDES, FCOSDetector, FCOSHead, Scale, compute_locations
 
 NUM_CLASSES = 27
-STRIDES = [8, 16, 32]
 
 
 @pytest.fixture
@@ -69,3 +70,19 @@ def test_backward_produces_gradients(model):
     loss.backward()
 
     assert all(p.grad is not None for p in model.head.parameters())
+
+
+def test_backbone_batchnorm_is_frozen(model):
+    modules = list(model.modules())
+
+    assert not any(isinstance(m, nn.BatchNorm2d) for m in modules)
+    assert any(isinstance(m, FrozenBatchNorm2d) for m in modules)
+
+
+def test_locations_are_cell_centers():
+    features = [torch.zeros(1, 1, 2, 3), torch.zeros(1, 1, 1, 2)]
+
+    level0, level1 = compute_locations(features, strides=[8, 16])
+
+    assert level0.tolist() == [[4, 4], [12, 4], [20, 4], [4, 12], [12, 12], [20, 12]]
+    assert level1.tolist() == [[8, 8], [24, 8]]

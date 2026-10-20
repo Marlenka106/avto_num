@@ -103,7 +103,8 @@ def augment_dataset():
             new_label_name = f"{stem}_aug_{i}.txt"
             with open(OUT_LABELS / new_label_name, 'w') as f:
                 for bbox, label in zip(aug_bboxes, aug_labels, strict=True):
-                    f.write(f"{label} {bbox[0]:.6f} {bbox[1]:.6f} {bbox[2]:.6f} {bbox[3]:.6f}\n")
+                    # albumentations возвращает метки как float, а class_id в разметке - целое число
+                    f.write(f"{int(label)} {bbox[0]:.6f} {bbox[1]:.6f} {bbox[2]:.6f} {bbox[3]:.6f}\n")
 
             total_generated += 1
 
