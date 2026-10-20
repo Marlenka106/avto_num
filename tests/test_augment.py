@@ -48,7 +48,9 @@ def test_boxes_stay_normalized_and_originals_are_copied(yolo_dataset):
 
     for text in read_labels(augment_data.OUT_LABELS).values():
         for line in text.splitlines():
-            assert all(0 <= float(v) <= 1 for v in line.split()[1:])
+            class_id, *coords = line.split()
+            assert class_id.isdigit()
+            assert all(0 <= float(v) <= 1 for v in coords)
     original = Path("yolo_dataset/images/train/a.jpeg").read_bytes()
     assert (augment_data.OUT_IMAGES / "a.jpeg").read_bytes() == original
 

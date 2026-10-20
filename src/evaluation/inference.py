@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader
 
 from src.data.classes import CLASSES, read_plate
 from src.data.dataset import PlateCharDataset, get_transform
-from src.models.fcos import FCOSDetector
+from src.data.quality import is_clean_annotation
+from src.models.fcos import FCOSDetector, compute_locations
 from src.utils.seed import set_seed
 
 # Обратный маппинг: индекс класса -> символ
@@ -23,20 +24,6 @@ def collate_fn(batch):
     images = torch.stack([item[0] for item in batch], dim=0)
     targets = [item[1] for item in batch]
     return images, targets
-
-
-def generate_locations(h, w, device):
-    """Генерирует координаты центров для каждого уровня пирамиды при размере 256x512."""
-    strides = [8, 16, 32]
-    locations = []
-    for stride in strides:
-        feat_h, feat_w = h // stride, w // stride
-        shifts_x = torch.arange(0, feat_w * stride, stride, dtype=torch.float32, device=device)
-        shifts_y = torch.arange(0, feat_h * stride, stride, dtype=torch.float32, device=device)
-        shift_y, shift_x = torch.meshgrid(shifts_y, shifts_x, indexing='ij')
-        loc = torch.stack([shift_x.reshape(-1), shift_y.reshape(-1)], dim=1)
-        locations.append(loc)
-    return locations
 
 
 def filter_plate_chars(boxes, scores, labels):
@@ -79,7 +66,7 @@ def filter_plate_chars(boxes, scores, labels):
     return boxes[idx], scores[idx], labels[idx]
 
 
-def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35, nms_thresh=0.3, plate_filter=True):
+def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.3, nms_thresh=0.4, plate_filter=True):
     """CLASS-AGNOSTIC декодирование FCOS + геометрическая фильтрация (plate_filter=False - только NMS)."""
     batch_size = logits[0].shape[0]
     num_classes = logits[0].shape[1]
@@ -94,7 +81,8 @@ def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35
             reg = bbox_reg[level][b].permute(1, 2, 0).reshape(-1, 4)
             cent = centerness[level][b].permute(1, 2, 0).reshape(-1)
 
-            scores_lvl = torch.sigmoid(log) * torch.sigmoid(cent).unsqueeze(1)
+            # Скор как в FCOS: среднее геометрическое уверенности класса и centerness
+            scores_lvl = torch.sqrt(torch.sigmoid(log) * torch.sigmoid(cent).unsqueeze(1))
             pos = torch.where(scores_lvl > conf_thresh)
             if pos[0].numel() == 0:
                 continue
@@ -142,6 +130,11 @@ def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35
     return all_predictions
 
 
+def to_detections(pred):
+    """Предсказания одного изображения как список (box [x1, y1, x2, y2], class_id, conf)."""
+    return list(zip(pred['boxes'].tolist(), pred['labels'].tolist(), pred['scores'].tolist(), strict=True))
+
+
 def evaluate():
     set_seed(42)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -151,6 +144,10 @@ def evaluate():
     test_dataset = PlateCharDataset(
         img_dir="number_plates/test", txt_dir="number_plates/test", transforms=get_transform(train=False)
     )
+    # Неполная разметка делает правильный ответ модели «ошибкой» - такие изображения не оцениваем
+    test_dataset.img_paths = [
+        p for p in test_dataset.img_paths if is_clean_annotation(test_dataset.txt_dir / f"{p.stem}.txt")
+    ]
     # ДОБАВЛЕНО: collate_fn=collate_fn
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn, num_workers=2)
 
@@ -167,7 +164,6 @@ def evaluate():
     logger.info(f"Loaded weights from {weights_path}")
 
     # 3. Инференс
-    locations = generate_locations(256, 512, device)
     correct_plates = 0
     total_plates = len(test_dataset)
 
@@ -182,7 +178,7 @@ def evaluate():
         with torch.no_grad():
             logits, bbox_reg, centerness = model(img_tensor)
 
-        preds = decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.15, nms_thresh=0.4)[0]
+        preds = decode_predictions(logits, bbox_reg, centerness, compute_locations(logits))[0]
 
         # Собираем предсказанную строку (сортируем по x1)
         pred_str = ""

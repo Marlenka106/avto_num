@@ -13,13 +13,13 @@ from PIL import Image
 from ultralytics import YOLO
 
 from src.data.classes import CLASSES, read_plate
-from src.data.dataset import INPUT_HEIGHT, INPUT_WIDTH, get_transform
+from src.data.dataset import get_transform
 from src.data.images import list_images
 from src.data.quality import is_clean_annotation
-from src.evaluation.inference import decode_predictions, generate_locations
+from src.evaluation.inference import decode_predictions, to_detections
 from src.evaluation.metrics import cer, wilson_interval
 from src.evaluation.postprocess import filter_plate_predictions
-from src.models.fcos import FCOSDetector
+from src.models.fcos import FCOSDetector, compute_locations
 
 
 def make_yolo_predictor(model, conf):
@@ -36,7 +36,6 @@ def make_fcos_predictor(model, conf):
     """predict(img_path) -> список (box [x1, y1, x2, y2], class_id, conf) в координатах входа 256x512."""
     device = next(model.parameters()).device
     transform = get_transform(train=False)
-    locations = generate_locations(INPUT_HEIGHT, INPUT_WIDTH, device)
 
     def predict(img_path):
         image = np.array(Image.open(img_path).convert('RGB'))
@@ -45,9 +44,15 @@ def make_fcos_predictor(model, conf):
             logits, bbox_reg, centerness = model(tensor)
         # Геометрический фильтр общий для обеих моделей - применяется в evaluate()
         pred = decode_predictions(
-            logits, bbox_reg, centerness, locations, conf_thresh=conf, nms_thresh=0.45, plate_filter=False
+            logits,
+            bbox_reg,
+            centerness,
+            compute_locations(logits),
+            conf_thresh=conf,
+            nms_thresh=0.45,
+            plate_filter=False,
         )[0]
-        return list(zip(pred['boxes'].tolist(), pred['labels'].tolist(), pred['scores'].tolist(), strict=True))
+        return to_detections(pred)
 
     return predict
 

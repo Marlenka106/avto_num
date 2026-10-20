@@ -9,7 +9,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.data.dataset import PlateCharDataset, get_transform
-from src.models.fcos import FCOSDetector
+from src.evaluation.inference import decode_predictions, to_detections
+from src.evaluation.postprocess import filter_plate_predictions
+from src.models.fcos import FCOSDetector, compute_locations
 from src.models.loss import FCOSLoss
 from src.utils.seed import set_seed
 
@@ -53,8 +55,10 @@ def train_one_epoch(model, loss_fn, dataloader, optimizer, device):
 
 @torch.no_grad()
 def validate(model, loss_fn, dataloader, device):
+    """Возвращает средний val loss и Exact Match - долю номеров, распознанных целиком."""
     model.eval()
     total_loss = 0
+    correct, total = 0, 0
 
     for images, targets in dataloader:
         images = images.to(device)
@@ -64,7 +68,14 @@ def validate(model, loss_fn, dataloader, device):
         losses = loss_fn(logits, bbox_reg, centerness, targets)
         total_loss += losses['total_loss'].item()
 
-    return total_loss / len(dataloader)
+        # Та же постобработка, что в evaluate.py; GT сортируем слева направо
+        preds = decode_predictions(logits, bbox_reg, centerness, compute_locations(logits), plate_filter=False)
+        for pred, target in zip(preds, targets, strict=True):
+            gt_labels = target['labels'][target['boxes'][:, 0].argsort()].tolist()
+            correct += filter_plate_predictions(to_detections(pred)) == gt_labels
+            total += 1
+
+    return total_loss / len(dataloader), correct / total
 
 
 def main():
@@ -115,29 +126,31 @@ def main():
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # 4. Цикл обучения
-    best_val_loss = float('inf')
-    history = {'train_loss': [], 'val_loss': []}
+    best_val_acc = -1.0
+    history = {'train_loss': [], 'val_loss': [], 'val_exact_match': []}
 
     logger.info("Starting training...")
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, loss_fn, train_loader, optimizer, device)
-        val_loss = validate(model, loss_fn, val_loader, device)
+        val_loss, val_acc = validate(model, loss_fn, val_loader, device)
         scheduler.step()
 
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
+        history['val_exact_match'].append(val_acc)
 
         logger.info(
             f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | "
-            f"LR: {scheduler.get_last_lr()[0]:.6f}"
+            f"Val Exact Match: {val_acc:.2%} | LR: {scheduler.get_last_lr()[0]:.6f}"
         )
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        # Лучшая модель - по целевой метрике, а не по loss
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
             save_path = Path("weights/best.pt")
             save_path.parent.mkdir(parents=True, exist_ok=True)
             torch.save(model.state_dict(), save_path)
-            logger.info(f"💾 Saved new best model with val_loss: {best_val_loss:.4f}")
+            logger.info(f"💾 Saved new best model with val exact match: {best_val_acc:.2%}")
 
     with open("weights/history.json", "w") as f:
         json.dump(history, f, indent=2)

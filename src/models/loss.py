@@ -4,6 +4,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.models.fcos import compute_locations
+
+# Уровень пирамиды отвечает за объекты с max(l, t, r, b) в своём диапазоне (P3, P4, P5), как в FCOS
+SIZE_RANGES = [(0, 64), (64, 128), (128, float('inf'))]
+
 
 class FocalLoss(nn.Module):
     """Focal Loss для классификации."""
@@ -74,37 +79,24 @@ class FCOSLoss(nn.Module):
         self.focal_loss = FocalLoss()
         self.iou_loss = IOULoss()
 
-    def compute_locations(self, features):
-        """Генерирует координаты центров для каждой точки на feature map."""
-        locations = []
-        for level, feature in enumerate(features):
-            h, w = feature.shape[-2:]
-            stride = 2 ** (level + 3)  # 8, 16, 32
-
-            shifts_x = torch.arange(0, w * stride, stride, dtype=torch.float32, device=feature.device)
-            shifts_y = torch.arange(0, h * stride, stride, dtype=torch.float32, device=feature.device)
-            shift_y, shift_x = torch.meshgrid(shifts_y, shifts_x, indexing='ij')
-
-            # Центр каждой ячейки
-            locations_per_level = torch.stack([shift_x.reshape(-1), shift_y.reshape(-1)], dim=1)
-            locations.append(locations_per_level)
-
-        return locations
-
-    def compute_targets(self, locations, gt_boxes, gt_labels, feature_sizes):
+    def compute_targets(self, locations, gt_boxes, gt_labels):
         """
         Matching algorithm: определяет, какие точки отвечают за каждый GT бокс.
 
         locations: список координат точек для каждого уровня [(N0, 2), (N1, 2), ...]
         gt_boxes: (B, M, 4) — [xmin, ymin, xmax, ymax]
         gt_labels: (B, M) — классы
-        feature_sizes: список размеров feature maps [(H0, W0), (H1, W1), ...]
         """
         B, M = gt_boxes.shape[:2]
 
         # Объединяем все точки со всех уровней
         all_locations = torch.cat(locations, dim=0)  # (N, 2)
         N = all_locations.shape[0]
+
+        # Диапазон размеров объектов, за которые отвечает уровень каждой точки
+        size_ranges = torch.cat(
+            [loc.new_tensor(SIZE_RANGES[level]).expand(len(loc), 2) for level, loc in enumerate(locations)]
+        )  # (N, 2)
 
         # Для каждого изображения вычисляем targets
         cls_targets = []
@@ -130,13 +122,17 @@ class FCOSLoss(nn.Module):
             # Точка положительная, если все расстояния > 0 (т.е. точка внутри бокса)
             is_in_boxes = distances.min(dim=2)[0] > 0  # (N, M)
 
+            # и объект соответствует уровню пирамиды по max(l, t, r, b)
+            max_distance = distances.max(dim=2)[0]  # (N, M)
+            is_cared_in_level = (max_distance >= size_ranges[:, None, 0]) & (max_distance <= size_ranges[:, None, 1])
+
             # Для каждой точки выбираем GT бокс с минимальной площадью (если точка в нескольких боксах)
             box_areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])  # (M,)
             box_areas = box_areas[None].expand(N, M)  # (N, M)
 
-            # Маскируем боксы, в которые точка не попадает
+            # Маскируем боксы, в которые точка не попадает или которые не относятся к её уровню
             inf_tensor = torch.full_like(box_areas, float('inf'))
-            box_areas = torch.where(is_in_boxes, box_areas, inf_tensor)
+            box_areas = torch.where(is_in_boxes & is_cared_in_level, box_areas, inf_tensor)
 
             # Для каждой точки выбираем бокс с минимальной площадью
             min_area, min_area_idx = box_areas.min(dim=1)  # (N,)
@@ -181,7 +177,7 @@ class FCOSLoss(nn.Module):
                  [{'boxes': (M, 4), 'labels': (M,)}, ...]
         """
         # Генерируем locations
-        locations = self.compute_locations(logits)
+        locations = compute_locations(logits)
 
         # Подготавливаем GT боксы и labels
         B = len(targets)
@@ -199,9 +195,7 @@ class FCOSLoss(nn.Module):
                 gt_labels[b, :n_boxes] = target['labels']
 
         # Вычисляем targets для всех точек
-        cls_targets, box_targets, centerness_targets = self.compute_targets(
-            locations, gt_boxes, gt_labels, [f.shape[-2:] for f in logits]
-        )
+        cls_targets, box_targets, centerness_targets = self.compute_targets(locations, gt_boxes, gt_labels)
 
         # Форматируем предсказания: склеиваем все уровни пирамиды
         # Классы: (B, N, C)
