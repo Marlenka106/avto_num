@@ -12,6 +12,8 @@ TRAIN_DIR = Path("number_plates/train")
 SPLITS_DIR = Path("splits")
 VAL_FRACTION = 0.2
 SEED = 42
+# Номер, снятый больше 5 раз, занял бы заметную часть val (5732NXD - 40 кадров), поэтому идёт только в train
+MAX_VAL_FRAMES = 5
 
 
 def plate_key(txt_path):
@@ -32,7 +34,8 @@ def split_by_plate(images, val_fraction=VAL_FRACTION, seed=SEED):
 
     train, val = [], []
     for key in keys:
-        target = val if len(val) < val_fraction * len(images) else train
+        fits_val = len(groups[key]) <= MAX_VAL_FRAMES and len(val) < val_fraction * len(images)
+        target = val if fits_val else train
         target.extend(groups[key])
     return sorted(train), sorted(val)
 

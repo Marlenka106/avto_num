@@ -16,6 +16,7 @@ from src.data.quality import is_clean_annotation
 
 DATA_DIR = Path("number_plates")
 FIGURES_DIR = Path("reports/figures")
+SPLITS_DIR = Path("splits")
 SPLITS = ["train", "test"]
 SEED = 42
 # Допуск сверки рамок .xml и .txt: при конвертации VOC (с 1) в YOLO (с 0) центры сдвинуты на 1 px
@@ -98,6 +99,12 @@ def print_summary(data):
         print(f"  сверка .xml/.txt/изображения: {dict(issues) or 'расхождений нет'}")
 
     print(f"Исправлено ошибок разметки: {len(LABEL_FIXES)} {list(LABEL_FIXES.values())}")
+    coverage = class_coverage(data)
+    rare = [c for i, c in enumerate(CLASSES) if min(coverage["val"][i], coverage["test"][i]) < 5]
+    print("Символов по классам (train/val/test):")
+    print(" ".join(f"{c}:{'/'.join(str(coverage[s][i]) for s in coverage)}" for i, c in enumerate(CLASSES)))
+    print(f"Меньше 5 примеров в val или test: {rare}")
+
     test_classes = {class_id for row in data["test"] for class_id in row["class_ids"]}
     print(f"Классы без примеров в test: {[CLASSES[i] for i in range(len(CLASSES)) if i not in test_classes]}")
 
@@ -107,15 +114,25 @@ def print_summary(data):
     print(f"Номеров test, встречающихся в train: {len(seen)}/{len(data['test'])}")
 
 
+def class_coverage(data):
+    """Число символов каждого класса в выборках, на которых модель учится и оценивается."""
+    rows_by_name = {row["img_path"].name: row for row in data["train"]}
+    splits = {
+        name: [rows_by_name[n] for n in (SPLITS_DIR / f"{name}.txt").read_text().split()] for name in ["train", "val"]
+    }
+    splits["test"] = [row for row in data["test"] if row["clean"]]
+    return {name: Counter(class_id for row in rows for class_id in row["class_ids"]) for name, rows in splits.items()}
+
+
 def plot_class_distribution(data):
+    coverage = class_coverage(data)
     fig, ax = plt.subplots(figsize=(12, 4))
-    width = 0.4
-    for offset, split in zip([-width / 2, width / 2], SPLITS, strict=True):
-        counts = Counter(class_id for row in data[split] for class_id in row["class_ids"])
+    width = 0.27
+    for offset, (split, counts) in zip([-width, 0, width], coverage.items(), strict=True):
         ax.bar([i + offset for i in range(len(CLASSES))], [counts[i] for i in range(len(CLASSES))], width, label=split)
     ax.set_xticks(range(len(CLASSES)), CLASSES)
     ax.set_yscale("log")
-    ax.set_title("Число символов каждого класса")
+    ax.set_title("Число символов каждого класса (train/val по splits/, test с полной разметкой)")
     ax.legend()
     return fig
 
