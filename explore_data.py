@@ -1,14 +1,16 @@
 """Разведочный анализ датасета: статистика в консоль и графики в reports/figures."""
 
+import hashlib
 import random
 from collections import Counter
 from pathlib import Path
+from xml.etree import ElementTree
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from PIL import Image
 
-from src.data.classes import CLASSES, read_plate
+from src.data.classes import CLASSES, LABEL_FIXES, read_label, read_plate
 from src.data.images import list_images
 from src.data.quality import is_clean_annotation
 
@@ -16,6 +18,52 @@ DATA_DIR = Path("number_plates")
 FIGURES_DIR = Path("reports/figures")
 SPLITS = ["train", "test"]
 SEED = 42
+# Допуск сверки рамок .xml и .txt: при конвертации VOC (с 1) в YOLO (с 0) центры сдвинуты на 1 px
+BOX_TOLERANCE_PX = 2
+
+
+def dataset_checksum():
+    """SHA-256 всех файлов датасета: по нему проверяется, что данные те же самые."""
+    digest = hashlib.sha256()
+    for path in sorted(p for p in DATA_DIR.rglob("*") if p.is_file()):
+        digest.update(path.relative_to(DATA_DIR).as_posix().encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def check_annotations(img_path):
+    """Расхождения между .xml, .txt и изображением; пустое множество - разметка согласована."""
+    width, height = Image.open(img_path).size
+    root = ElementTree.parse(img_path.with_suffix(".xml")).getroot()
+    xml_boxes = [
+        (obj.findtext("name"), *(float(obj.findtext(f"bndbox/{key}")) for key in ["xmin", "ymin", "xmax", "ymax"]))
+        for obj in root.iter("object")
+    ]
+    txt_boxes = []
+    for line in img_path.with_suffix(".txt").read_text().splitlines():
+        class_id, cx, cy, w, h = line.split()
+        cx, cy, w, h = float(cx) * width, float(cy) * height, float(w) * width, float(h) * height
+        txt_boxes.append((CLASSES[int(class_id)], cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2))
+
+    issues = set()
+    if (int(root.findtext("size/width")), int(root.findtext("size/height"))) != (width, height):
+        issues.add("размер в .xml не совпадает с изображением")
+    if len(xml_boxes) != len(txt_boxes):
+        issues.add("разное число рамок в .xml и .txt")
+        return issues
+
+    # Сравниваем рамки попарно слева направо
+    for xml_box, txt_box in zip(
+        sorted(xml_boxes, key=lambda b: b[1] + b[3]), sorted(txt_boxes, key=lambda b: b[1] + b[3]), strict=True
+    ):
+        if xml_box[0] != txt_box[0]:
+            issues.add("символ в .xml не совпадает с классом в .txt")
+        if max(abs(a - b) for a, b in zip(xml_box[1:], txt_box[1:], strict=True)) > BOX_TOLERANCE_PX:
+            issues.add("рамки в .xml и .txt не совпадают")
+        x1, y1, x2, y2 = txt_box[1:]
+        if x1 < 0 or y1 < 0 or x2 > width or y2 > height:
+            issues.add("рамка выходит за край изображения")
+    return issues
 
 
 def collect(split):
@@ -23,7 +71,7 @@ def collect(split):
     rows = []
     for img_path in list_images(DATA_DIR / split):
         txt_path = img_path.with_suffix(".txt")
-        class_ids = [int(line.split()[0]) for line in txt_path.read_text().splitlines()]
+        class_ids = [int(line.split()[0]) for line in read_label(txt_path)]
         rows.append(
             {
                 "img_path": img_path,
@@ -31,6 +79,7 @@ def collect(split):
                 "size": Image.open(img_path).size,
                 "class_ids": class_ids,
                 "clean": is_clean_annotation(txt_path),
+                "issues": check_annotations(img_path),
             }
         )
     return rows
@@ -38,12 +87,17 @@ def collect(split):
 
 def print_summary(data):
     """Ключевые числа, на которых строятся выводы EDA."""
+    print(f"SHA-256 датасета: {dataset_checksum()}")
     for split, rows in data.items():
         extensions = Counter(row["img_path"].suffix for row in rows)
         objects = sum(len(row["class_ids"]) for row in rows)
         clean = sum(row["clean"] for row in rows)
         print(f"{split}: {len(rows)} изображений {dict(extensions)}, {objects} символов, полная разметка {clean}")
 
+        issues = Counter(issue for row in rows for issue in row["issues"])
+        print(f"  сверка .xml/.txt/изображения: {dict(issues) or 'расхождений нет'}")
+
+    print(f"Исправлено ошибок разметки: {len(LABEL_FIXES)} {list(LABEL_FIXES.values())}")
     test_classes = {class_id for row in data["test"] for class_id in row["class_ids"]}
     print(f"Классы без примеров в test: {[CLASSES[i] for i in range(len(CLASSES)) if i not in test_classes]}")
 
@@ -116,7 +170,7 @@ def plot_samples(data):
         img = Image.open(row["img_path"]).convert("RGB")
         w, h = img.size
         ax.imshow(img)
-        for line in row["img_path"].with_suffix(".txt").read_text().splitlines():
+        for line in read_label(row["img_path"].with_suffix(".txt")):
             class_id, cx, cy, bw, bh = line.split()
             x1, y1 = (float(cx) - float(bw) / 2) * w, (float(cy) - float(bh) / 2) * h
             ax.add_patch(

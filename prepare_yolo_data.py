@@ -3,6 +3,7 @@
 import shutil
 from pathlib import Path
 
+from src.data.classes import read_label
 from src.data.images import list_images
 from src.data.yolo_config import write_data_yaml
 
@@ -38,8 +39,8 @@ def prepare_yolo_dataset():
 
             # Копируем изображение
             shutil.copy(img_path, dst_root / "images" / split_name / img_path.name)
-            # Копируем аннотацию
-            shutil.copy(txt, dst_root / "labels" / split_name / txt.name)
+            # Копируем аннотацию с исправлением известных ошибок разметки
+            (dst_root / "labels" / split_name / txt.name).write_text("".join(f"{line}\n" for line in read_label(txt)))
             count += 1
 
         print(f"✅ {split_name}: скопировано {count} пар (image + label)")

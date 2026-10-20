@@ -4,6 +4,7 @@ import random
 from collections import defaultdict
 from pathlib import Path
 
+from src.data.classes import read_label
 from src.data.images import list_images
 from src.data.quality import is_clean_annotation
 
@@ -15,7 +16,7 @@ SEED = 42
 
 def plate_key(txt_path):
     """Номер как последовательность class_id слева направо."""
-    boxes = [line.split() for line in txt_path.read_text().splitlines()]
+    boxes = [line.split() for line in read_label(txt_path)]
     return " ".join(box[0] for box in sorted(boxes, key=lambda box: float(box[1])))
 
 
