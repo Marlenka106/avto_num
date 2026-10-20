@@ -52,7 +52,9 @@ def test_split_is_deterministic_and_close_to_fraction(images):
 def test_pipeline_writes_splits_and_builds_yolo_dataset(tmp_path, monkeypatch):
     for split in ["train", "test"]:
         (tmp_path / "number_plates" / split).mkdir(parents=True)
-    train_images = [make_image(tmp_path / "number_plates" / "train", f"t{i}.jpeg", [i, 1, 2]) for i in range(10)]
+    train_dir = tmp_path / "number_plates" / "train"
+    train_images = [make_image(train_dir, f"t{i}.jpeg", [i, 1, 2, 3, 10, 11, 12]) for i in range(10)]
+    make_image(train_dir, "partial.jpeg", [16, 11])
     make_image(tmp_path / "number_plates" / "test", "x.png", [4, 4, 4])
     monkeypatch.chdir(tmp_path)
 
@@ -65,4 +67,4 @@ def test_pipeline_writes_splits_and_builds_yolo_dataset(tmp_path, monkeypatch):
     assert sorted(p.name for p in Path("yolo_dataset/images/val").iterdir()) == sorted(val_names)
     assert len(list(Path("yolo_dataset/labels/train").iterdir())) == len(train_names)
     assert [p.name for p in Path("yolo_dataset/images/test").iterdir()] == ["x.png"]
-    assert len(list(Path("number_plates/train").iterdir())) == 30
+    assert len(list(Path("number_plates/train").iterdir())) == 33
