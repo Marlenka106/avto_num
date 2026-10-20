@@ -36,9 +36,6 @@ ignore = [
     "E741",    # l, t, r, b — стандартная нотация расстояний в FCOS
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"augment_data.py" = ["BLE001"]  # обработка ошибок аугментации будет переписана отдельным PR
-
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 
