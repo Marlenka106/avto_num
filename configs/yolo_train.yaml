@@ -1,0 +1,23 @@
+# Обучение YOLOv8: yolo cfg=configs/yolo_train.yaml
+# Любой параметр можно переопределить в командной строке, например: yolo cfg=configs/yolo_train.yaml epochs=50
+task: detect
+mode: train
+
+model: yolov8m.pt
+data: yolo_dataset_augmented/data.yaml  # создаётся augment_data.py
+epochs: 100
+patience: 25
+imgsz: 640
+batch: 8
+
+# Воспроизводимость
+seed: 42
+deterministic: true
+
+# Веса и логи: runs/yolo_aug/plates_detector_m
+project: runs/yolo_aug
+name: plates_detector_m
+exist_ok: true
+
+# Аугментации: без отражений - зеркальный символ это другой глиф
+fliplr: 0.0

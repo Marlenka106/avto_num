@@ -119,7 +119,7 @@ else:
 # ============================================================
 print("\n📈 3/7: Кривые обучения YOLOv8m на аугментированных данных...")
 
-results_path_2 = Path("runs/detect/runs/yolo_aug/plates_detector_m/results.csv")
+results_path_2 = Path("runs/yolo_aug/plates_detector_m/results.csv")
 if results_path_2.exists():
     df_yolo_m = pd.read_csv(results_path_2)
     df_yolo_m.columns = df_yolo_m.columns.str.strip()
@@ -237,7 +237,7 @@ print(f"   ✅ Сохранено: {REPORT_DIR / '05_comparison_table.png'}")
 # ============================================================
 print("\n🖼️  6/7: Примеры предсказаний YOLOv8m...")
 
-model = YOLO("runs/detect/runs/yolo_aug/plates_detector_m/weights/best.pt")
+model = YOLO("runs/yolo_aug/plates_detector_m/weights/best.pt")
 test_dir = Path("yolo_dataset_augmented/images/test")
 labels_dir = Path("yolo_dataset_augmented/labels/test")
 

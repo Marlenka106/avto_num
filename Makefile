@@ -1,10 +1,10 @@
 # Параметры оценки: подбор порога - make eval-yolo SPLIT=val CONF="0.15 0.25 0.4"
-YOLO_WEIGHTS ?= runs/detect/runs/yolo_aug/plates_detector_m/weights/best.pt
+YOLO_WEIGHTS ?= runs/yolo_aug/plates_detector_m/weights/best.pt
 FCOS_WEIGHTS ?= weights/best.pt
 SPLIT ?= test
 CONF ?= 0.25
 
-.PHONY: install lint format test check split prepare augment train-yolo eval-yolo train-fcos eval-fcos report clean
+.PHONY: install lint format test check split prepare augment data train-yolo eval-yolo train-fcos eval-fcos report clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -32,8 +32,10 @@ prepare:
 augment:
 	python augment_data.py
 
+data: prepare augment
+
 train-yolo:
-	yolo detect train data=data.yaml model=yolov8m.pt epochs=100 imgsz=640 batch=8 patience=25 project=runs/yolo_aug name=plates_detector_m
+	yolo cfg=configs/yolo_train.yaml
 
 eval-yolo:
 	python evaluate.py --model yolo --weights $(YOLO_WEIGHTS) --split $(SPLIT) --conf $(CONF)
