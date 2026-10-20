@@ -27,7 +27,7 @@ print("=" * 60)
 # ============================================================
 # 1. ГРАФИКИ ОБУЧЕНИЯ YOLOv8s (первая модель)
 # ============================================================
-print("\n📈 1/5: Кривые обучения YOLOv8s...")
+print("\n📈 1/4: Кривые обучения YOLOv8s...")
 
 results_path_1 = Path("runs/detect/runs/yolo/plates_detector/results.csv")
 if results_path_1.exists():
@@ -75,7 +75,7 @@ else:
 # ============================================================
 # 2. ГРАФИКИ ОБУЧЕНИЯ YOLOv8m (аугментированные данные)
 # ============================================================
-print("\n📈 2/5: Кривые обучения YOLOv8m на аугментированных данных...")
+print("\n📈 2/4: Кривые обучения YOLOv8m на аугментированных данных...")
 
 results_path_2 = Path("runs/yolo_aug/plates_detector_m/results.csv")
 if results_path_2.exists():
@@ -118,7 +118,7 @@ if results_path_2.exists():
 # ============================================================
 # 3. ГРАФИКИ ОБУЧЕНИЯ FCOS (кастомная архитектура)
 # ============================================================
-print("\n📈 3/5: Кривые обучения FCOS...")
+print("\n📈 3/4: Кривые обучения FCOS...")
 
 fcos_history = Path("weights/history.json")
 if fcos_history.exists():
@@ -145,7 +145,7 @@ else:
 # ============================================================
 # 4. ПРИМЕРЫ ПРЕДСКАЗАНИЙ YOLOv8m (успехи и ошибки)
 # ============================================================
-print("\n🖼️  4/5: Примеры предсказаний YOLOv8m...")
+print("\n🖼️  4/4: Примеры предсказаний YOLOv8m...")
 
 model = YOLO("runs/yolo_aug/plates_detector_m/weights/best.pt")
 test_dir = Path("yolo_dataset_augmented/images/test")
@@ -166,8 +166,11 @@ for row in rows:
 
 # Рисуем 3 успеха и 3 ошибки
 fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+# Ошибок может быть меньше трёх - пустые ячейки не рисуем
+for ax in axes.flat:
+    ax.axis('off')
 
-for row, examples, title_prefix in [(0, success_examples[:3], "✅ Успех"), (1, fail_examples[:3], "❌ Ошибка")]:
+for row, examples, title_prefix in [(0, success_examples[:3], "Успех"), (1, fail_examples[:3], "Ошибка")]:
     for col, ex in enumerate(examples):
         import matplotlib.image as mpimg
 
@@ -176,56 +179,12 @@ for row, examples, title_prefix in [(0, success_examples[:3], "✅ Успех"),
         axes[row, col].set_title(
             f"{title_prefix}\nGT: {ex['gt']}  |  Pred: {ex['pred']}", fontsize=11, fontweight='bold'
         )
-        axes[row, col].axis('off')
 
 plt.suptitle('Примеры предсказаний YOLOv8m на тестовой выборке', fontsize=16, fontweight='bold', y=0.98)
 plt.tight_layout(rect=[0, 0, 1, 0.96])
 plt.savefig(REPORT_DIR / "06_prediction_examples.png", dpi=150, bbox_inches='tight')
 plt.close()
 print(f"   ✅ Сохранено: {REPORT_DIR / '06_prediction_examples.png'}")
-
-# ============================================================
-# 5. АНАЛИЗ ОШИБОК (ТИПЫ ОШИБОК)
-# ============================================================
-print("\n🔍 5/5: Анализ типов ошибок...")
-
-error_types = {'Пропуск символа': 0, 'Лишний символ (фантом)': 0, 'Подстановка символа': 0, 'Правильно': 0}
-
-for ex in fail_examples:
-    gt, pred = ex['gt'], ex['pred']
-    # Простая эвристика классификации ошибки
-    if len(pred) < len(gt):
-        error_types['Пропуск символа'] += 1
-    elif len(pred) > len(gt):
-        error_types['Лишний символ (фантом)'] += 1
-    else:
-        error_types['Подстановка символа'] += 1
-
-error_types['Правильно'] = len(success_examples)
-
-fig, ax = plt.subplots(figsize=(10, 6))
-colors = ['#27ae60', '#e74c3c', '#f39c12', '#9b59b6']
-wedges, texts, autotexts = ax.pie(
-    error_types.values(),
-    labels=error_types.keys(),
-    autopct='%1.1f%%',
-    colors=colors,
-    startangle=90,
-    textprops={'fontsize': 11},
-)
-for autotext in autotexts:
-    autotext.set_fontweight('bold')
-    autotext.set_color('white')
-
-plt.title(
-    f'Распределение результатов на тестовой выборке ({len(success_examples) + len(fail_examples)} изображений)\n'
-    f'Всего: {len(success_examples)} правильно, {len(fail_examples)} ошибок',
-    fontsize=14,
-    fontweight='bold',
-)
-plt.savefig(REPORT_DIR / "07_error_analysis.png", dpi=150, bbox_inches='tight')
-plt.close()
-print(f"   ✅ Сохранено: {REPORT_DIR / '07_error_analysis.png'}")
 
 # ============================================================
 # ФИНАЛЬНАЯ СВОДКА
