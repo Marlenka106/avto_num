@@ -5,6 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from src.data.images import list_images
+from src.data.quality import is_clean_annotation
 
 TRAIN_DIR = Path("number_plates/train")
 SPLITS_DIR = Path("splits")
@@ -37,14 +38,16 @@ def split_by_plate(images, val_fraction=VAL_FRACTION, seed=SEED):
 
 def main():
     images = list_images(TRAIN_DIR)
-    train, val = split_by_plate(images)
+    # Частично размеченные номера учат детектор не замечать символы - исключаем их
+    clean_images = [p for p in images if is_clean_annotation(p.with_suffix(".txt"))]
+    train, val = split_by_plate(clean_images)
 
     # Сохраняем списки файлов, исходные данные не трогаем
     SPLITS_DIR.mkdir(exist_ok=True)
     for name, split in [("train", train), ("val", val)]:
         (SPLITS_DIR / f"{name}.txt").write_text("".join(f"{p.name}\n" for p in split))
 
-    print(f"Всего изображений: {len(images)}")
+    print(f"Всего изображений: {len(images)}, с полной разметкой: {len(clean_images)}")
     print(f"train: {len(train)}, val: {len(val)}")
     print(f"✅ Списки сохранены в {SPLITS_DIR}/")
 
