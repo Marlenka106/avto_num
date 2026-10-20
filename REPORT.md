@@ -222,8 +222,7 @@ avto_num/
 ├── weights/ # Веса FCOS  
 ├── reports/final/ # Визуализации для отчета  
 ├── augment_data.py # Скрипт аугментации  
-├── evaluate_yolo_m.py # Оценка YOLOv8m  
-├── evaluate_fcos_augmented.py # Оценка FCOS  
+├── evaluate.py # Оценка YOLO и FCOS  
 ├── generate_report.py # Генерация визуализаций  
 └── data.yaml # Конфиг YOLO  
 
@@ -246,8 +245,8 @@ python augment_data.py
 yolo detect train data=data.yaml model=yolov8m.pt epochs=100 imgsz=640 batch=8 patience=25 \
     project=runs/yolo_aug name=plates_detector_m
 
-# 4. Оценка
-python evaluate_yolo_m.py
+# 4. Оценка (порог подбирается на val)
+python evaluate.py --weights runs/detect/runs/yolo_aug/plates_detector_m/weights/best.pt --split test
 
 # 5. Генерация отчета
 python generate_report.py

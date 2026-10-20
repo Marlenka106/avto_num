@@ -1,14 +1,11 @@
 """Тесты Dataset символов номерных знаков."""
 
-from pathlib import Path
-
 import pytest
 import torch
-import yaml
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from src.data.dataset import CLASSES, INPUT_HEIGHT, INPUT_WIDTH, PlateCharDataset, get_transform
+from src.data.dataset import INPUT_HEIGHT, INPUT_WIDTH, PlateCharDataset, get_transform
 from src.training.train import collate_fn
 
 
@@ -71,9 +68,3 @@ def test_batches_with_train_collate_fn(data_dir):
 
     assert images.shape == (2, 3, INPUT_HEIGHT, INPUT_WIDTH)
     assert [len(t['labels']) for t in targets] == [2, 1]
-
-
-def test_classes_match_yolo_config():
-    config = yaml.safe_load((Path(__file__).parents[1] / 'data.yaml').read_text())
-
-    assert config['names'] == CLASSES

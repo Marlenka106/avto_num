@@ -31,13 +31,13 @@ avto_num/
 ├── REPORT.md ________________# Полный текстовый отчет  
 │  
 ├── augment_data.py __________# Скрипт аугментации данных (Albumentations)  
-├── evaluate_yolo_m.py _______# Скрипт оценки финальной модели (YOLOv8m)  
-├── evaluate_fcos_augmented.py# Скрипт оценки кастомной модели (FCOS)  
+├── evaluate.py ______________# Оценка YOLO и FCOS: Exact Match, CER, 95% ДИ  
 ├── generate_report.py _______# Скрипт генерации графиков для отчета  
 │  
 ├── src/ _____________________# Исходный код (модульная архитектура)  
 │   ├── data/ ________________# Загрузка данных и трансформации  
 │   │   ├── __init __.py  
+│   │   ├── classes.py ________# CLASSES и чтение строки номера  
 │   │   └── dataset.py ________# Кастомный PyTorch Dataset  
 │   ├── models/ _______________# Архитектуры нейросетей  
 │   │   ├── __init __.py  
@@ -48,7 +48,9 @@ avto_num/
 │   │   └── train.py _________# Training loop с gradient clipping  
 │   ├── evaluation/ __________# Инференс и метрики  
 │   │   ├── __init __.py  
-│   │   └── inference.py _____# Декодер и NMS для FCOS  
+│   │   ├── inference.py _____# Декодер и NMS для FCOS  
+│   │   ├── metrics.py _______# Exact Match, CER, интервал Уилсона  
+│   │   └── postprocess.py ___# Геометрический фильтр символов номера  
 │   └── utils/ _______________# Утилиты  
 │       ├── __init __.py  
 │       └── seed.py __________# Фиксация seed для воспроизводимости  
@@ -85,8 +87,9 @@ make augment
 # 5. Обучение финальной модели (YOLOv8m)
 make train-yolo
 
-# 6. Оценка точности на тестовой выборке
-make eval-yolo
+# 6. Подбор порога уверенности на val и финальная оценка на тестовой выборке
+make eval-yolo SPLIT=val CONF="0.15 0.25 0.4"
+make eval-yolo SPLIT=test CONF=0.25
 
 # 7. Генерация финального отчета с графиками
 make report
