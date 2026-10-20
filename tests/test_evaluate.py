@@ -5,6 +5,7 @@ from PIL import Image
 
 import evaluate
 from src.data.classes import CLASSES
+from src.evaluation.postprocess import sort_left_to_right
 from src.models.fcos import FCOSDetector
 
 
@@ -68,3 +69,12 @@ def test_fcos_predictor_returns_boxes_classes_and_scores(tmp_path):
         assert len(box) == 4
         assert 0 <= class_id < len(CLASSES)
         assert conf > 0.001
+
+
+def test_evaluate_without_filter_keeps_all_predictions(tmp_path):
+    write_plate(tmp_path, "a", [1, 2, 3, 4, 10, 10, 10])
+    predict = fake_predict({"a": [1, 2, 3, 4, 10, 10, 10, 10]})
+
+    rows = evaluate.evaluate([tmp_path / "a.jpeg"], tmp_path, predict, set(), postprocess=sort_left_to_right)
+
+    assert rows[0]["pred"] == "1234AAAA"
