@@ -1,6 +1,6 @@
 """Тесты постобработки предсказаний."""
 
-from src.evaluation.postprocess import filter_plate_predictions
+from src.evaluation.postprocess import filter_plate_predictions, fit_line, sort_left_to_right
 
 
 def pred(x, class_id, conf=0.9, height=50, center_y=50):
@@ -38,3 +38,28 @@ def test_does_not_mutate_input():
 
 def test_no_detections():
     assert filter_plate_predictions([]) == []
+
+
+def test_keeps_all_characters_of_tilted_plate():
+    # Центры символов поднимаются на 15 px на каждый символ - больше допуска от горизонтали
+    preds = [pred(20 * i, i, center_y=100 - 15 * i) for i in range(7)]
+
+    assert filter_plate_predictions(preds) == list(range(7))
+
+
+def test_drops_off_line_box_on_tilted_plate():
+    preds = [pred(20 * i, i, center_y=100 - 15 * i) for i in range(6)] + [pred(70, 20, center_y=100)]
+
+    assert filter_plate_predictions(preds) == list(range(6))
+
+
+def test_fit_line_ignores_single_outlier():
+    slope, intercept = fit_line([0, 10, 20, 30, 40], [5, 7, 9, 100, 13])
+
+    assert (slope, intercept) == (0.2, 5.0)
+
+
+def test_sort_left_to_right_keeps_all_predictions():
+    preds = [pred(30, 3), pred(10, 1), pred(20, 2, height=200)]
+
+    assert sort_left_to_right(preds) == [1, 2, 3]

@@ -19,7 +19,7 @@ from src.data.images import list_images
 from src.data.quality import is_clean_annotation
 from src.evaluation.inference import decode_predictions, to_detections
 from src.evaluation.metrics import cer, wilson_interval
-from src.evaluation.postprocess import filter_plate_predictions
+from src.evaluation.postprocess import filter_plate_predictions, sort_left_to_right
 from src.models.fcos import FCOSDetector, compute_locations
 
 
@@ -27,7 +27,8 @@ def make_yolo_predictor(model, conf):
     """predict(img_path) -> список (box [x1, y1, x2, y2], class_id, conf)."""
 
     def predict(img_path):
-        boxes = model(img_path, conf=conf, iou=0.45, verbose=False)[0].boxes
+        # NMS без учёта класса: иначе две гипотезы одного символа (например, B и 8) остаются обе
+        boxes = model(img_path, conf=conf, iou=0.45, agnostic_nms=True, verbose=False)[0].boxes
         return list(zip(boxes.xyxy.tolist(), boxes.cls.int().tolist(), boxes.conf.tolist(), strict=True))
 
     return predict
@@ -66,12 +67,12 @@ def load_fcos(weights):
     return model.eval()
 
 
-def evaluate(img_paths, labels_dir, predict, train_plates):
+def evaluate(img_paths, labels_dir, predict, train_plates, postprocess=filter_plate_predictions):
     """Сравнивает предсказанные номера с разметкой."""
     rows = []
     for img_path in img_paths:
         gt = read_plate(labels_dir / f"{img_path.stem}.txt")
-        pred = "".join(CLASSES[class_id] for class_id in filter_plate_predictions(predict(img_path)))
+        pred = "".join(CLASSES[class_id] for class_id in postprocess(predict(img_path)))
         rows.append({"name": img_path.name, "gt": gt, "pred": pred, "seen": gt in train_plates})
     return rows
 
@@ -101,7 +102,9 @@ def main():
     parser.add_argument("--split", choices=["val", "test"], default="val")
     parser.add_argument("--conf", type=float, nargs="+", default=[0.25])
     parser.add_argument("--data", type=Path, default=Path("yolo_dataset"))
+    parser.add_argument("--no-filter", action="store_true", help="без геометрического фильтра - для сравнения с ним")
     args = parser.parse_args()
+    postprocess = sort_left_to_right if args.no_filter else filter_plate_predictions
 
     images_dir = args.data / "images" / args.split
     labels_dir = args.data / "labels" / args.split
@@ -117,7 +120,7 @@ def main():
         model, make_predictor = load_fcos(args.weights), make_fcos_predictor
 
     for conf in args.conf:
-        rows = evaluate(images, labels_dir, make_predictor(model, conf), train_plates)
+        rows = evaluate(images, labels_dir, make_predictor(model, conf), train_plates, postprocess)
         if len(args.conf) == 1:
             for row in rows:
                 status = "✅" if row["gt"] == row["pred"] else "❌"
