@@ -224,7 +224,7 @@ avto_num/
 ├── augment_data.py # Скрипт аугментации  
 ├── evaluate.py # Оценка YOLO и FCOS  
 ├── generate_report.py # Генерация визуализаций  
-└── data.yaml # Конфиг YOLO  
+└── configs/yolo_train.yaml # Конфиг обучения YOLO  
 
 
 ---
@@ -242,11 +242,10 @@ pip install ultralytics albumentations opencv-python-headless pandas matplotlib 
 python augment_data.py
 
 # 3. Обучение YOLOv8m
-yolo detect train data=data.yaml model=yolov8m.pt epochs=100 imgsz=640 batch=8 patience=25 \
-    project=runs/yolo_aug name=plates_detector_m
+yolo cfg=configs/yolo_train.yaml
 
 # 4. Оценка (порог подбирается на val)
-python evaluate.py --weights runs/detect/runs/yolo_aug/plates_detector_m/weights/best.pt --split test
+python evaluate.py --weights runs/yolo_aug/plates_detector_m/weights/best.pt --split test
 
 # 5. Генерация отчета
 python generate_report.py

@@ -7,6 +7,7 @@ import albumentations as A
 import cv2
 
 from src.data.images import list_images
+from src.data.yolo_config import write_data_yaml
 
 # Пути
 SRC_ROOT = Path("yolo_dataset")
@@ -106,6 +107,7 @@ def augment_dataset():
 
             total_generated += 1
 
+    write_data_yaml(OUT_ROOT)
     print(f"✅ Аугментация завершена! Всего изображений в train: {total_generated}")
 
 

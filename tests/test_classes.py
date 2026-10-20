@@ -1,16 +1,6 @@
 """Тесты классов символов и чтения строки номера."""
 
-from pathlib import Path
-
-import yaml
-
-from src.data.classes import CLASSES, read_plate
-
-
-def test_classes_match_yolo_config():
-    config = yaml.safe_load((Path(__file__).parents[1] / 'data.yaml').read_text())
-
-    assert config['names'] == CLASSES
+from src.data.classes import read_plate
 
 
 def test_read_plate_sorts_characters_left_to_right(tmp_path):

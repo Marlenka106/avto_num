@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from src.data.images import list_images
+from src.data.yolo_config import write_data_yaml
 
 
 def read_split(split_file, src_dir):
@@ -47,6 +48,7 @@ def prepare_yolo_dataset():
     copy_split(read_split(splits_dir / "train.txt", src_train), "train")
     copy_split(read_split(splits_dir / "val.txt", src_train), "val")
     copy_split(list_images(src_test), "test")
+    write_data_yaml(dst_root)
 
     print(f"\n🎉 Датасет подготовлен в {dst_root}")
 
