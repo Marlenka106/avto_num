@@ -42,6 +42,15 @@ def test_same_plate_never_in_both_splits(images):
     assert sorted(train + val) == images
 
 
+def test_plate_with_many_frames_goes_to_train(tmp_path):
+    frequent = [make_image(tmp_path, f"often_{i}.jpeg", [5, 7, 3, 2]) for i in range(split_data.MAX_VAL_FRAMES + 1)]
+    rare = [make_image(tmp_path, f"img_{i}.jpeg", [i, 1]) for i in range(10)]
+
+    for seed in range(5):
+        train, _ = split_data.split_by_plate(sorted(frequent + rare), seed=seed)
+        assert set(frequent) <= set(train)
+
+
 def test_split_is_deterministic_and_close_to_fraction(images):
     first = split_data.split_by_plate(images)
 

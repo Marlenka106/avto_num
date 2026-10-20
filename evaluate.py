@@ -5,6 +5,7 @@
 """
 
 import argparse
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -76,13 +77,20 @@ def evaluate(img_paths, labels_dir, predict, train_plates):
 
 
 def summarize(rows, title):
-    """Печатает Exact Match с доверительным интервалом и средний CER."""
+    """Печатает Exact Match с доверительным интервалом, средний CER и Exact Match по номерам."""
     correct = sum(row["gt"] == row["pred"] for row in rows)
     low, high = wilson_interval(correct, len(rows))
     mean_cer = sum(cer(row["gt"], row["pred"]) for row in rows) / len(rows)
+
+    # Один номер снят многократно: среднее по номерам не даёт частому номеру перевесить остальные
+    plates = defaultdict(list)
+    for row in rows:
+        plates[row["gt"]].append(row["gt"] == row["pred"])
+    per_plate = sum(sum(hits) / len(hits) for hits in plates.values()) / len(plates)
+
     print(
         f"{title}: Exact Match {correct / len(rows):.1%} ({correct}/{len(rows)}), "
-        f"95% ДИ [{low:.1%}; {high:.1%}], CER {mean_cer:.1%}"
+        f"95% ДИ [{low:.1%}; {high:.1%}], CER {mean_cer:.1%}, по номерам {per_plate:.1%} ({len(plates)} номеров)"
     )
 
 

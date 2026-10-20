@@ -40,7 +40,20 @@ def test_summarize_prints_exact_match_interval_and_cer(capsys):
 
     evaluate.summarize(rows, "test")
 
-    assert capsys.readouterr().out == "test: Exact Match 50.0% (1/2), 95% ДИ [9.5%; 90.5%], CER 7.1%\n"
+    assert capsys.readouterr().out == (
+        "test: Exact Match 50.0% (1/2), 95% ДИ [9.5%; 90.5%], CER 7.1%, по номерам 50.0% (1 номеров)\n"
+    )
+
+
+def test_summarize_weights_plates_equally(capsys):
+    # Частый номер распознан на всех 3 кадрах, редкий - нет
+    rows = [{"gt": "1111AAA", "pred": "1111AAA"}] * 3 + [{"gt": "2222BBB", "pred": "2222BB"}]
+
+    evaluate.summarize(rows, "val")
+
+    out = capsys.readouterr().out
+    assert "Exact Match 75.0% (3/4)" in out
+    assert "по номерам 50.0% (2 номеров)" in out
 
 
 def test_fcos_predictor_returns_boxes_classes_and_scores(tmp_path):
