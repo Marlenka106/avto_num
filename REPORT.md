@@ -208,6 +208,7 @@ make train-fcos                                 # FCOS
 make eval-fcos SPLIT=val CONF="0.2 0.3 0.4"     # подбор порога FCOS на val
 make eval-fcos SPLIT=test CONF=0.3              # финальная оценка FCOS
 make report                                     # графики в reports/final
+make demo                                       # распознавание номеров на number_plates/test
 ```
 
 ---

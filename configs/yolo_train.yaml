@@ -1,4 +1,4 @@
-# Обучение YOLOv8: yolo cfg=configs/yolo_train.yaml
+# Обучение YOLOv8: make train-yolo (или yolo cfg=configs/yolo_train.yaml)
 # Любой параметр можно переопределить в командной строке, например: yolo cfg=configs/yolo_train.yaml epochs=50
 task: detect
 mode: train
@@ -8,16 +8,36 @@ data: yolo_dataset_augmented/data.yaml  # создаётся augment_data.py
 epochs: 100
 patience: 25
 imgsz: 640
-batch: 8
+# GTX 1660 Ti (6 ГБ): с AMP loss уходит в nan, batch 8 в fp32 не помещается.
+# Эффективный батч не меняется - Ultralytics накапливает градиенты до nbs
+batch: 4
+nbs: 64
+amp: false
 
 # Воспроизводимость
 seed: 42
 deterministic: true
 
-# Веса и логи: runs/yolo_aug/plates_detector_m
+# Веса и логи: runs/yolo_aug/plates_detector_m.
+# Папка прогона не перезаписывается: иначе results.csv дописывается к старому,
+# а при падении до первой эпохи оценивается старый best.pt
 project: runs/yolo_aug
 name: plates_detector_m
-exist_ok: true
+exist_ok: false
 
-# Аугментации: без отражений - зеркальный символ это другой глиф
-fliplr: 0.0
+# Аугментации - все, что влияют на детекцию (значения по умолчанию Ultralytics 8.3.40, кроме fliplr).
+# Дополнительно Ultralytics сам применяет Blur, MedianBlur, ToGray, CLAHE из albumentations с p=0.01
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+degrees: 0.0
+translate: 0.1
+scale: 0.5
+shear: 0.0
+perspective: 0.0
+flipud: 0.0
+fliplr: 0.0  # без отражений - зеркальный символ это другой глиф
+mosaic: 1.0
+close_mosaic: 10  # последние 10 эпох без mosaic
+mixup: 0.0
+copy_paste: 0.0

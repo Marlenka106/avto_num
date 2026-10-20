@@ -80,6 +80,11 @@ def validate(model, loss_fn, dataloader, device):
 
 def main():
     # 1. Настройки
+    out_dir = Path("weights")
+    # Прошлый прогон не перезаписываем: при падении до первой эпохи оценивались бы старые веса
+    if (out_dir / "best.pt").exists():
+        raise SystemExit(f"{out_dir / 'best.pt'} уже есть - перенесите прошлый прогон")
+
     set_seed(42)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Using device: {device}")
@@ -147,13 +152,12 @@ def main():
         # Лучшая модель - по целевой метрике, а не по loss
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_path = Path("weights/best.pt")
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save(model.state_dict(), save_path)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            torch.save(model.state_dict(), out_dir / "best.pt")
             logger.info(f"💾 Saved new best model with val exact match: {best_val_acc:.2%}")
 
-    with open("weights/history.json", "w") as f:
-        json.dump(history, f, indent=2)
+        # История пишется каждую эпоху - при падении обучения она не теряется
+        (out_dir / "history.json").write_text(json.dumps(history, indent=2))
 
     logger.success("🎉 Training completed successfully!")
 

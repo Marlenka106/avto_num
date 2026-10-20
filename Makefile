@@ -1,10 +1,13 @@
 # Параметры оценки: подбор порога - make eval-yolo SPLIT=val CONF="0.15 0.25 0.4"
-YOLO_WEIGHTS ?= runs/yolo_aug/plates_detector_m/weights/best.pt
+YOLO_RUN ?= runs/yolo_aug/plates_detector_m
+YOLO_WEIGHTS ?= $(YOLO_RUN)/weights/best.pt
 FCOS_WEIGHTS ?= weights/best.pt
 SPLIT ?= test
 CONF ?= 0.25
+# Демонстрация: make demo IMAGES=путь/к/папке_или_файлу
+IMAGES ?= number_plates/test
 
-.PHONY: install lint format test check eda split prepare augment data train-yolo eval-yolo train-fcos eval-fcos report clean
+.PHONY: install lint format test check eda split prepare augment data train-yolo eval-yolo train-fcos eval-fcos demo report clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -37,8 +40,10 @@ augment:
 
 data: prepare augment
 
+# Прошлый прогон не перезаписываем: его нужно перенести, иначе оценка возьмёт старые веса
 train-yolo:
-	yolo cfg=configs/yolo_train.yaml
+	@test ! -e $(YOLO_RUN) || (echo "$(YOLO_RUN) уже есть - перенесите прошлый прогон" && exit 1)
+	yolo cfg=configs/yolo_train.yaml project=$(dir $(YOLO_RUN)) name=$(notdir $(YOLO_RUN))
 
 eval-yolo:
 	python evaluate.py --model yolo --weights $(YOLO_WEIGHTS) --split $(SPLIT) --conf $(CONF)
@@ -48,6 +53,9 @@ train-fcos:
 
 eval-fcos:
 	python evaluate.py --model fcos --weights $(FCOS_WEIGHTS) --split $(SPLIT) --conf $(CONF)
+
+demo:
+	python demo.py --model yolo --weights $(YOLO_WEIGHTS) --conf $(CONF) $(IMAGES)
 
 report:
 	python generate_report.py
