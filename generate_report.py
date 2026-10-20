@@ -11,9 +11,9 @@ import seaborn as sns
 from matplotlib.patches import Patch
 from ultralytics import YOLO
 
-from evaluate_yolo_m import filter_plate_predictions, get_gt_from_txt
-from src.data.dataset import CLASSES
+from evaluate import evaluate, make_yolo_predictor
 from src.data.images import list_images
+from src.data.quality import is_clean_annotation
 
 # Настройки графиков
 plt.rcParams['figure.dpi'] = 150
@@ -241,32 +241,15 @@ model = YOLO("runs/detect/runs/yolo_aug/plates_detector_m/weights/best.pt")
 test_dir = Path("yolo_dataset_augmented/images/test")
 labels_dir = Path("yolo_dataset_augmented/labels/test")
 
+# Те же постобработка и порог, что в evaluate.py; неполная разметка не оценивается
+images = [p for p in list_images(test_dir) if is_clean_annotation(labels_dir / f"{p.stem}.txt")]
+rows = evaluate(images, labels_dir, make_yolo_predictor(model, conf=0.25), train_plates=set())
+
 success_examples = []
 fail_examples = []
-
-for img_path in list_images(test_dir):
-    stem = img_path.stem
-    txt_path = labels_dir / f"{stem}.txt"
-    gt_str = get_gt_from_txt(txt_path)
-
-    results = model(img_path, conf=0.25, iou=0.45, verbose=False)
-
-    preds = []
-    if len(results[0].boxes) > 0:
-        for box, cls_id, conf in zip(
-            results[0].boxes.xyxy.cpu().numpy(),
-            results[0].boxes.cls.cpu().numpy(),
-            results[0].boxes.conf.cpu().numpy(),
-            strict=False,
-        ):
-            cx = (box[0] + box[2]) / 2
-            preds.append((cx, CLASSES[int(cls_id)], box, conf))
-
-    pred_chars = filter_plate_predictions(preds)
-    pred_str = "".join(pred_chars)
-
-    entry = {'path': img_path, 'gt': gt_str, 'pred': pred_str}
-    if pred_str == gt_str and len(gt_str) > 0:
+for row in rows:
+    entry = {'path': test_dir / row['name'], 'gt': row['gt'], 'pred': row['pred']}
+    if row['pred'] == row['gt']:
         success_examples.append(entry)
     else:
         fail_examples.append(entry)

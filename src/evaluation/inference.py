@@ -9,7 +9,8 @@ import torchvision.ops as ops
 from loguru import logger
 from torch.utils.data import DataLoader
 
-from src.data.dataset import CLASSES, PlateCharDataset, get_transform
+from src.data.classes import CLASSES, read_plate
+from src.data.dataset import PlateCharDataset, get_transform
 from src.models.fcos import FCOSDetector
 from src.utils.seed import set_seed
 
@@ -78,8 +79,8 @@ def filter_plate_chars(boxes, scores, labels):
     return boxes[idx], scores[idx], labels[idx]
 
 
-def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35, nms_thresh=0.3):
-    """CLASS-AGNOSTIC декодирование FCOS + геометрическая фильтрация."""
+def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35, nms_thresh=0.3, plate_filter=True):
+    """CLASS-AGNOSTIC декодирование FCOS + геометрическая фильтрация (plate_filter=False - только NMS)."""
     batch_size = logits[0].shape[0]
     num_classes = logits[0].shape[1]
     all_predictions = []
@@ -126,7 +127,8 @@ def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35
         boxes, scores, labels = boxes[keep], scores[keep], labels[keep]
 
         # Геометрическая фильтрация по структуре номера
-        boxes, scores, labels = filter_plate_chars(boxes, scores, labels)
+        if plate_filter:
+            boxes, scores, labels = filter_plate_chars(boxes, scores, labels)
 
         order = boxes[:, 0].argsort()
         all_predictions.append(
@@ -138,22 +140,6 @@ def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.35
         )
 
     return all_predictions
-
-
-def get_gt_string_from_txt(txt_path):
-    """Читает .txt и возвращает строку номера, отсортированную слева направо."""
-    if not txt_path.exists():
-        return ""
-    boxes_chars = []
-    with open(txt_path) as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) == 5:
-                class_id, cx = float(parts[0]), float(parts[1])
-                boxes_chars.append((cx, CLASSES[int(class_id)]))
-    # Сортируем по центру X (слева направо)
-    boxes_chars.sort(key=lambda x: x[0])
-    return "".join([c for _, c in boxes_chars])
 
 
 def evaluate():
@@ -206,7 +192,7 @@ def evaluate():
             pred_str = "".join([INV_CLASSES[int(lbl)] for lbl in pred_labels])
 
         # Ground Truth строка
-        gt_str = get_gt_string_from_txt(txt_path)
+        gt_str = read_plate(txt_path)
 
         if pred_str == gt_str and len(gt_str) > 0:
             correct_plates += 1

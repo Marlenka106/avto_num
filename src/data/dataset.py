@@ -11,13 +11,6 @@ from torch.utils.data import Dataset
 
 from src.data.images import list_images
 
-# Порядок совпадает с class_id в .txt аннотациях
-# fmt: off
-CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-           'A', 'B', 'D', 'E', 'G', 'H', 'J', 'K', 'L', 'N',
-           'R', 'S', 'T', 'U', 'V', 'X', 'Z']
-# fmt: on
-
 INPUT_HEIGHT = 256
 INPUT_WIDTH = 512
 

@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 
-from src.data.dataset import CLASSES, PlateCharDataset, get_transform
+from src.data.classes import CLASSES
+from src.data.dataset import PlateCharDataset, get_transform
 
 # Пути к данным
 train_img_dir = "number_plates/train"
