@@ -41,6 +41,14 @@ def split_by_plate(images, val_fraction=VAL_FRACTION, seed=SEED):
 
 
 def main():
+    # Старый split_data.py перемещал 20% train в number_plates/val - без этих файлов сплит будет другим
+    old_val_dir = TRAIN_DIR.parent / "val"
+    if old_val_dir.exists():
+        raise SystemExit(
+            f"{old_val_dir} осталась от старой версии split_data.py - верните файлы в train: "
+            f"mv {old_val_dir}/* {TRAIN_DIR}/ && rmdir {old_val_dir}"
+        )
+
     images = list_images(TRAIN_DIR)
     # Частично размеченные номера учат детектор не замечать символы - исключаем их
     clean_images = [p for p in images if is_clean_annotation(p.with_suffix(".txt"))]
