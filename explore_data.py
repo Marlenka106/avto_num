@@ -19,6 +19,8 @@ FIGURES_DIR = Path("reports/figures")
 SPLITS_DIR = Path("splits")
 SPLITS = ["train", "test"]
 SEED = 42
+# SHA-256 данных, на которых получены результаты README и REPORT
+DATASET_SHA256 = "db62504275571867fb5432c8a712af31a28a7686bc844a9a89e874401d8961c1"
 # Допуск сверки рамок .xml и .txt: при конвертации VOC (с 1) в YOLO (с 0) центры сдвинуты на 1 px
 BOX_TOLERANCE_PX = 2
 
@@ -88,7 +90,10 @@ def collect(split):
 
 def print_summary(data):
     """Ключевые числа, на которых строятся выводы EDA."""
-    print(f"SHA-256 датасета: {dataset_checksum()}")
+    checksum = dataset_checksum()
+    print(f"SHA-256 датасета: {checksum}")
+    if checksum != DATASET_SHA256:
+        print(f"⚠️  Данные отличаются от эталонных ({DATASET_SHA256}): результаты README и REPORT не повторятся")
     for split, rows in data.items():
         extensions = Counter(row["img_path"].suffix for row in rows)
         objects = sum(len(row["class_ids"]) for row in rows)

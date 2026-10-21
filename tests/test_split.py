@@ -77,3 +77,14 @@ def test_pipeline_writes_splits_and_builds_yolo_dataset(tmp_path, monkeypatch):
     assert len(list(Path("yolo_dataset/labels/train").iterdir())) == len(train_names)
     assert [p.name for p in Path("yolo_dataset/images/test").iterdir()] == ["x.png"]
     assert len(list(Path("number_plates/train").iterdir())) == 33
+
+
+def test_split_stops_if_old_val_dir_exists(tmp_path, monkeypatch):
+    # Старый split_data.py перемещал часть train в number_plates/val
+    (tmp_path / "number_plates" / "train").mkdir(parents=True)
+    (tmp_path / "number_plates" / "val").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit, match="number_plates/val"):
+        split_data.main()
+    assert not Path("splits").exists()
