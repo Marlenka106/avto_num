@@ -173,21 +173,20 @@ for row in rows:
     else:
         fail_examples.append(entry)
 
-# Рисуем 3 успеха и 3 ошибки
+# Рисуем до 3 ошибок, остальные ячейки - успехи
+fails = [(ex, "Ошибка") for ex in fail_examples[:3]]
+examples = [(ex, "Успех") for ex in success_examples[: 6 - len(fails)]] + fails
 fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-# Ошибок может быть меньше трёх - пустые ячейки не рисуем
+# Изображений может быть меньше шести - пустые ячейки не рисуем
 for ax in axes.flat:
     ax.axis('off')
 
-for row, examples, title_prefix in [(0, success_examples[:3], "Успех"), (1, fail_examples[:3], "Ошибка")]:
-    for col, ex in enumerate(examples):
-        import matplotlib.image as mpimg
+for ax, (ex, title_prefix) in zip(axes.flat, examples, strict=False):
+    import matplotlib.image as mpimg
 
-        img = mpimg.imread(ex['path'])
-        axes[row, col].imshow(img)
-        axes[row, col].set_title(
-            f"{title_prefix}\nGT: {ex['gt']}  |  Pred: {ex['pred']}", fontsize=11, fontweight='bold'
-        )
+    img = mpimg.imread(ex['path'])
+    ax.imshow(img)
+    ax.set_title(f"{title_prefix}\nGT: {ex['gt']}  |  Pred: {ex['pred']}", fontsize=11, fontweight='bold')
 
 plt.suptitle('Примеры предсказаний YOLOv8m на тестовой выборке', fontsize=16, fontweight='bold', y=0.98)
 plt.tight_layout(rect=[0, 0, 1, 0.96])
