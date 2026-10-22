@@ -6,8 +6,8 @@ from pathlib import Path
 import albumentations as A
 import cv2
 
+from src.data.build import staged_dataset
 from src.data.images import list_images
-from src.data.yolo_config import write_data_yaml
 
 # Пути
 SRC_ROOT = Path("yolo_dataset")
@@ -41,15 +41,21 @@ def get_transform():
 
 
 def augment_dataset():
-    # Пересоздаём выходную папку, чтобы не осталось файлов от прошлого запуска
-    shutil.rmtree(OUT_ROOT, ignore_errors=True)
-    OUT_IMAGES.mkdir(parents=True)
-    OUT_LABELS.mkdir(parents=True)
+    with staged_dataset(OUT_ROOT) as staged:
+        total_generated = _augment_dataset(staged)
+    print(f"✅ Аугментация завершена! Всего изображений в train: {total_generated}")
+
+
+def _augment_dataset(out_root):
+    out_images = out_root / "images" / "train"
+    out_labels = out_root / "labels" / "train"
+    out_images.mkdir(parents=True)
+    out_labels.mkdir(parents=True)
 
     # Копируем val и test без изменений (они должны оставаться "чистыми")
     for split in ["val", "test"]:
         for kind in ["images", "labels"]:
-            shutil.copytree(SRC_ROOT / kind / split, OUT_ROOT / kind / split)
+            shutil.copytree(SRC_ROOT / kind / split, out_root / kind / split)
 
     # Новый пайплайн на каждый запуск, чтобы seed давал одинаковый результат
     transform = get_transform()
@@ -62,27 +68,22 @@ def augment_dataset():
         stem = img_path.stem
         label_path = SRC_LABELS / f"{stem}.txt"
 
-        if not label_path.exists():
-            continue
-
         # Читаем исходные боксы и классы
         bboxes = []
         class_labels = []
         with open(label_path) as f:
             for line in f:
-                parts = line.strip().split()
-                if len(parts) == 5:
-                    cls, x, y, w, h = map(float, parts)
-                    bboxes.append([x, y, w, h])
-                    class_labels.append(int(cls))
+                cls, x, y, w, h = map(float, line.split())
+                bboxes.append([x, y, w, h])
+                class_labels.append(int(cls))
 
         # Читаем изображение
         image = cv2.imread(str(img_path))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # 1. Копируем оригинал в новый датасет (без повторного JPEG-сжатия)
-        shutil.copy(img_path, OUT_IMAGES / img_path.name)
-        shutil.copy(label_path, OUT_LABELS / label_path.name)
+        shutil.copy(img_path, out_images / img_path.name)
+        shutil.copy(label_path, out_labels / label_path.name)
         total_generated += 1
 
         # 2. Генерируем 3 аугментированные версии для каждого изображения
@@ -97,19 +98,19 @@ def augment_dataset():
 
             # Сохраняем новое изображение
             new_name = f"{stem}_aug_{i}.jpeg"
-            cv2.imwrite(str(OUT_IMAGES / new_name), cv2.cvtColor(aug_image, cv2.COLOR_RGB2BGR))
+            if not cv2.imwrite(str(out_images / new_name), cv2.cvtColor(aug_image, cv2.COLOR_RGB2BGR)):
+                raise OSError(f"Не удалось записать изображение {out_images / new_name}")
 
             # Сохраняем новые лейблы
             new_label_name = f"{stem}_aug_{i}.txt"
-            with open(OUT_LABELS / new_label_name, 'w') as f:
+            with open(out_labels / new_label_name, 'w') as f:
                 for bbox, label in zip(aug_bboxes, aug_labels, strict=True):
                     # albumentations возвращает метки как float, а class_id в разметке - целое число
                     f.write(f"{int(label)} {bbox[0]:.6f} {bbox[1]:.6f} {bbox[2]:.6f} {bbox[3]:.6f}\n")
 
             total_generated += 1
 
-    write_data_yaml(OUT_ROOT)
-    print(f"✅ Аугментация завершена! Всего изображений в train: {total_generated}")
+    return total_generated
 
 
 if __name__ == "__main__":
