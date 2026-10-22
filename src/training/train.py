@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 from loguru import logger
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, get_worker_info
 from tqdm import tqdm
 
 from src.data.dataset import PlateCharDataset, get_transform
@@ -21,6 +21,12 @@ def collate_fn(batch):
     images = torch.stack([item[0] for item in batch], dim=0)
     targets = [item[1] for item in batch]
     return images, targets
+
+
+def seed_worker(worker_id):
+    """Задаёт Albumentations отдельный воспроизводимый seed для каждого worker и эпохи."""
+    worker = get_worker_info()
+    worker.dataset.transforms.set_random_seed(torch.initial_seed() % (2**32))
 
 
 def train_one_epoch(model, loss_fn, dataloader, optimizer, device):
@@ -85,7 +91,8 @@ def main():
     if (out_dir / "best.pt").exists():
         raise SystemExit(f"{out_dir / 'best.pt'} уже есть - перенесите прошлый прогон")
 
-    set_seed(42)
+    seed = 42
+    set_seed(seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Using device: {device}")
 
@@ -98,7 +105,7 @@ def main():
     train_dataset = PlateCharDataset(
         img_dir="yolo_dataset_augmented/images/train",
         txt_dir="yolo_dataset_augmented/labels/train",
-        transforms=get_transform(train=True),
+        transforms=get_transform(train=True, seed=seed),
     )
     val_dataset = PlateCharDataset(
         img_dir="yolo_dataset_augmented/images/val",
@@ -107,7 +114,14 @@ def main():
     )
 
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=4, pin_memory=True
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=collate_fn,
+        num_workers=4,
+        pin_memory=True,
+        worker_init_fn=seed_worker,
+        generator=torch.Generator().manual_seed(seed),
     )
     val_loader = DataLoader(
         val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=4, pin_memory=True
