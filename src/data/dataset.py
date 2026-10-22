@@ -15,7 +15,7 @@ INPUT_HEIGHT = 256
 INPUT_WIDTH = 512
 
 
-def get_transform(train):
+def get_transform(train, seed=42):
     """Ресайз до 256x512 и нормализация ImageNet; для обучения - лёгкие аугментации."""
     augmentations = []
     if train:
@@ -29,6 +29,7 @@ def get_transform(train):
     return A.Compose(
         [A.Resize(INPUT_HEIGHT, INPUT_WIDTH), *augmentations, A.Normalize(), ToTensorV2()],
         bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']),
+        seed=seed,
     )
 
 
