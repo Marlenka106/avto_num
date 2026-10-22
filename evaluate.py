@@ -51,7 +51,6 @@ def make_fcos_predictor(model, conf):
             centerness,
             compute_locations(logits),
             conf_thresh=conf,
-            nms_thresh=0.45,
             plate_filter=False,
         )[0]
         return to_detections(pred)

@@ -17,6 +17,8 @@ from src.utils.seed import set_seed
 
 # Обратный маппинг: индекс класса -> символ
 INV_CLASSES = dict(enumerate(CLASSES))
+# Единый порог NMS для выбора чекпоинта, оценки и демонстрации FCOS.
+NMS_THRESHOLD = 0.45
 
 
 def collate_fn(batch):
@@ -66,7 +68,9 @@ def filter_plate_chars(boxes, scores, labels):
     return boxes[idx], scores[idx], labels[idx]
 
 
-def decode_predictions(logits, bbox_reg, centerness, locations, conf_thresh=0.3, nms_thresh=0.4, plate_filter=True):
+def decode_predictions(
+    logits, bbox_reg, centerness, locations, conf_thresh=0.3, nms_thresh=NMS_THRESHOLD, plate_filter=True
+):
     """CLASS-AGNOSTIC декодирование FCOS + геометрическая фильтрация (plate_filter=False - только NMS)."""
     batch_size = logits[0].shape[0]
     num_classes = logits[0].shape[1]
